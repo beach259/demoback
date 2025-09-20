@@ -11,102 +11,252 @@
       </div>
     </div>
 
-    <!-- 主要内容区域 -->
-    <div class="content">
-      <div class="welcome-section">
-        <h2>欢迎，管理员 {{ userInfo.userId }}！</h2>
-        <p>这是管理员专用控制台</p>
+    <!-- 主要布局区域 -->
+    <div class="main-layout">
+      <!-- 左侧标签栏 -->
+      <div class="sidebar">
+        <div class="tab-list">
+          <div 
+            class="tab-item" 
+            :class="{ 'active': activeTab === 'dashboard' }"
+            @click="activeTab = 'dashboard'"
+          >
+            <i class="icon">🏠</i>
+            <span>首页</span>
+          </div>
+          <div 
+            class="tab-item" 
+            :class="{ 'active': activeTab === 'students' }"
+            @click="activeTab = 'students'"
+          >
+            <i class="icon">👥</i>
+            <span>学生管理</span>
+          </div>
+          <div 
+            class="tab-item" 
+            :class="{ 'active': activeTab === 'staff' }"
+            @click="activeTab = 'staff'"
+          >
+            <i class="icon">👨‍🏫</i>
+            <span>教职工管理</span>
+          </div>
+          <div 
+            class="tab-item" 
+            :class="{ 'active': activeTab === 'system' }"
+            @click="activeTab = 'system'"
+          >
+            <i class="icon">⚙️</i>
+            <span>系统设置</span>
+          </div>
+          <div 
+            class="tab-item" 
+            :class="{ 'active': activeTab === 'statistics' }"
+            @click="activeTab = 'statistics'"
+          >
+            <i class="icon">📊</i>
+            <span>数据统计</span>
+          </div>
+          <div 
+            class="tab-item" 
+            :class="{ 'active': activeTab === 'permissions' }"
+            @click="activeTab = 'permissions'"
+          >
+            <i class="icon">🔐</i>
+            <span>权限管理</span>
+          </div>
+          <div 
+            class="tab-item" 
+            :class="{ 'active': activeTab === 'logs' }"
+            @click="activeTab = 'logs'"
+          >
+            <i class="icon">📋</i>
+            <span>日志监控</span>
+          </div>
+          <div 
+            class="tab-item" 
+            :class="{ 'active': activeTab === 'backup' }"
+            @click="activeTab = 'backup'"
+          >
+            <i class="icon">💾</i>
+            <span>备份恢复</span>
+          </div>
+        </div>
       </div>
 
-      <!-- 学生管理模块 -->
-      <div v-if="currentView === 'students'" class="student-management">
-        <div class="management-header">
-          <h3>学生管理</h3>
-          <button class="add-btn" @click="showAddModal = true">添加学生</button>
-        </div>
-        
-        <!-- 学生列表 -->
-        <div class="student-list">
-          <div class="list-header">
-            <span>学生ID</span>
-            <span>姓名</span>
-            <span>邮箱</span>
-            <span>手机号</span>
-            <span>操作</span>
+      <!-- 右侧内容区域 -->
+      <div class="content-area">
+        <!-- 首页内容 -->
+        <div v-if="activeTab === 'dashboard'" class="tab-content">
+          <div class="welcome-section">
+            <h2>欢迎，管理员 {{ userInfo.userId }}！</h2>
+            <p>这是管理员专用控制台</p>
           </div>
-          <div v-for="student in students" :key="student.studentId" class="student-item">
-            <span>{{ student.studentId }}</span>
-            <span>{{ student.studentname }}</span>
-            <span>{{ student.email || '未填写' }}</span>
-            <span>{{ student.phone || '未填写' }}</span>
-            <div class="actions">
-              <button class="edit-btn" @click="editStudent(student)">编辑</button>
-              <button class="delete-btn" @click="deleteStudent(student.studentId)">删除</button>
+
+          <!-- 快捷功能卡片 -->
+          <div class="quick-actions">
+            <h3>快捷功能</h3>
+            <div class="feature-cards">
+              <div class="card" @click="activeTab = 'students'">
+                <h4>学生管理</h4>
+                <p>管理系统中的所有学生信息</p>
+              </div>
+              <div class="card" @click="activeTab = 'staff'">
+                <h4>教职工管理</h4>
+                <p>管理系统中的所有教职工信息</p>
+              </div>
+              <div class="card" @click="activeTab = 'system'">
+                <h4>系统设置</h4>
+                <p>配置系统参数和功能设置</p>
+              </div>
+              <div class="card" @click="activeTab = 'statistics'">
+                <h4>数据统计</h4>
+                <p>查看系统使用情况和数据报表</p>
+              </div>
             </div>
           </div>
         </div>
-      </div>
 
-      <!-- 教职工管理模块 -->
-      <div v-if="currentView === 'staff'" class="staff-management">
-        <div class="management-header">
-          <h3>教职工管理</h3>
-          <button class="add-btn" @click="showAddStaffModal = true">添加教职工</button>
-        </div>
-        
-        <!-- 教职工列表 -->
-        <div class="staff-list">
-          <div class="list-header">
-            <span>教职工ID</span>
-            <span>密码</span>
-            <span>操作</span>
+        <!-- 学生管理页面 -->
+        <div v-if="activeTab === 'students'" class="tab-content">
+          <div class="page-header">
+            <h2>学生管理</h2>
+            <button class="add-btn" @click="showAddModal = true">添加学生</button>
           </div>
-          <div v-for="staff in staffList" :key="staff.staffId" class="staff-item">
-            <span>{{ staff.staffId }}</span>
-            <span>{{ staff.password ? '******' : '未设置' }}</span>
-            <div class="actions">
-              <button class="edit-btn" @click="editStaff(staff)">编辑</button>
-              <button class="delete-btn" @click="deleteStaff(staff.staffId)">删除</button>
+          
+          <!-- 学生列表 -->
+          <div class="student-list">
+            <div class="list-header">
+              <span>学生ID</span>
+              <span>姓名</span>
+              <span>邮箱</span>
+              <span>手机号</span>
+              <span>操作</span>
+            </div>
+            <div v-for="student in students" :key="student.studentId" class="student-item">
+              <span>{{ student.studentId }}</span>
+              <span>{{ student.studentname }}</span>
+              <span>{{ student.email || '未填写' }}</span>
+              <span>{{ student.phone || '未填写' }}</span>
+              <div class="actions">
+                <button class="edit-btn" @click="editStudent(student)">编辑</button>
+                <button class="delete-btn" @click="deleteStudent(student.studentId)">删除</button>
+              </div>
             </div>
           </div>
         </div>
-      </div>
 
-      <!-- 默认功能卡片 -->
-      <div v-else class="feature-cards">
-        <div class="card" @click="currentView = 'students'">
-          <h3>学生管理</h3>
-          <p>管理系统中的所有学生信息</p>
+        <!-- 教职工管理页面 -->
+        <div v-if="activeTab === 'staff'" class="tab-content">
+          <div class="page-header">
+            <h2>教职工管理</h2>
+            <button class="add-btn" @click="showAddStaffModal = true">添加教职工</button>
+          </div>
+          
+          <!-- 教职工列表 -->
+          <div class="staff-list">
+            <div class="list-header">
+              <span>教职工ID</span>
+              <span>密码</span>
+              <span>操作</span>
+            </div>
+            <div v-for="staff in staffList" :key="staff.staffId" class="staff-item">
+              <span>{{ staff.staffId }}</span>
+              <span>{{ staff.password ? '******' : '未设置' }}</span>
+              <div class="actions">
+                <button class="edit-btn" @click="editStaff(staff)">编辑</button>
+                <button class="delete-btn" @click="deleteStaff(staff.staffId)">删除</button>
+              </div>
+            </div>
+          </div>
         </div>
-        <div class="card" @click="currentView = 'staff'">
-          <h3>教职工管理</h3>
-          <p>管理系统中的所有教职工信息</p>
-        </div>
-        <div class="card">
-          <h3>系统设置</h3>
-          <p>配置系统参数和功能设置</p>
-        </div>
-        <div class="card">
-          <h3>数据统计</h3>
-          <p>查看系统使用情况和数据报表</p>
-        </div>
-        <div class="card">
-          <h3>权限管理</h3>
-          <p>管理用户角色和访问权限</p>
-        </div>
-        <div class="card">
-          <h3>日志监控</h3>
-          <p>监控系统运行状态和操作日志</p>
-        </div>
-        <div class="card">
-          <h3>备份恢复</h3>
-          <p>数据备份和系统恢复功能</p>
-        </div>
-      </div>
 
-      <!-- 返回按钮 -->
-      <div v-if="currentView !== 'dashboard'" class="back-section">
-        <button class="back-btn" @click="currentView = 'dashboard'">返回主页</button>
+        <!-- 系统设置页面 -->
+        <div v-if="activeTab === 'system'" class="tab-content">
+          <div class="page-header">
+            <h2>系统设置</h2>
+          </div>
+          <div class="settings-content">
+            <div class="setting-section">
+              <h3>基本设置</h3>
+              <div class="setting-item">
+                <label>系统名称</label>
+                <input type="text" value="学生管理系统" class="setting-input">
+              </div>
+              <div class="setting-item">
+                <label>系统版本</label>
+                <span>v1.0.0</span>
+              </div>
+            </div>
+            <div class="setting-section">
+              <h3>安全设置</h3>
+              <div class="setting-item">
+                <label>密码复杂度要求</label>
+                <input type="checkbox" checked>
+              </div>
+              <div class="setting-item">
+                <label>登录失败锁定</label>
+                <input type="checkbox" checked>
+              </div>
+            </div>
+          </div>
+        </div>
+
+        <!-- 数据统计页面 -->
+        <div v-if="activeTab === 'statistics'" class="tab-content">
+          <div class="page-header">
+            <h2>数据统计</h2>
+          </div>
+          <div class="statistics-content">
+            <div class="stat-cards">
+              <div class="stat-card">
+                <h4>学生总数</h4>
+                <div class="stat-number">{{ students.length }}</div>
+              </div>
+              <div class="stat-card">
+                <h4>教职工总数</h4>
+                <div class="stat-number">{{ staffList.length }}</div>
+              </div>
+              <div class="stat-card">
+                <h4>今日登录</h4>
+                <div class="stat-number">0</div>
+              </div>
+              <div class="stat-card">
+                <h4>系统运行天数</h4>
+                <div class="stat-number">1</div>
+              </div>
+            </div>
+          </div>
+        </div>
+
+        <!-- 权限管理页面 -->
+        <div v-if="activeTab === 'permissions'" class="tab-content">
+          <div class="page-header">
+            <h2>权限管理</h2>
+          </div>
+          <div class="placeholder-content">
+            <p>权限管理功能正在开发中...</p>
+          </div>
+        </div>
+
+        <!-- 日志监控页面 -->
+        <div v-if="activeTab === 'logs'" class="tab-content">
+          <div class="page-header">
+            <h2>日志监控</h2>
+          </div>
+          <div class="placeholder-content">
+            <p>日志监控功能正在开发中...</p>
+          </div>
+        </div>
+
+        <!-- 备份恢复页面 -->
+        <div v-if="activeTab === 'backup'" class="tab-content">
+          <div class="page-header">
+            <h2>备份恢复</h2>
+          </div>
+          <div class="placeholder-content">
+            <p>备份恢复功能正在开发中...</p>
+          </div>
+        </div>
       </div>
     </div>
 
@@ -256,7 +406,7 @@ export default {
   data() {
     return {
       showLogout: false,
-      currentView: 'dashboard', // 'dashboard', 'students', 或 'staff'
+      activeTab: 'dashboard', // 当前激活的标签页
       showAddModal: false,
       showEditModal: false,
       showAddStaffModal: false,
@@ -542,6 +692,213 @@ export default {
   padding: 2rem;
 }
 
+/* 主布局样式 */
+.main-layout {
+  display: flex;
+  height: calc(100vh - 60px);
+}
+
+/* 左侧标签栏样式 */
+.sidebar {
+  width: 250px;
+  background-color: #2c3e50;
+  color: white;
+  display: flex;
+  flex-direction: column;
+}
+
+.tab-list {
+  display: flex;
+  flex-direction: column;
+  padding: 0;
+}
+
+.tab-item {
+  display: flex;
+  align-items: center;
+  padding: 15px 20px;
+  cursor: pointer;
+  transition: all 0.3s ease;
+  border-bottom: 1px solid rgba(255, 255, 255, 0.1);
+}
+
+.tab-item:hover {
+  background-color: rgba(255, 255, 255, 0.1);
+}
+
+.tab-item.active {
+  background-color: #3498db;
+  border-left: 4px solid #2980b9;
+}
+
+.tab-item .icon {
+  margin-right: 10px;
+  font-size: 16px;
+}
+
+.tab-item span {
+  font-size: 14px;
+  font-weight: 500;
+}
+
+/* 右侧内容区域样式 */
+.content-area {
+  flex: 1;
+  background-color: #f8f9fa;
+  overflow-y: auto;
+}
+
+.tab-content {
+  padding: 20px;
+  height: 100%;
+}
+
+.page-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-bottom: 20px;
+  padding: 20px;
+  background-color: white;
+  border-radius: 8px;
+  box-shadow: 0 2px 4px rgba(0,0,0,0.1);
+}
+
+.page-header h2 {
+  margin: 0;
+  color: #2c3e50;
+}
+
+/* 快捷功能卡片样式 */
+.quick-actions {
+  margin-top: 20px;
+}
+
+.quick-actions h3 {
+  color: #2c3e50;
+  margin-bottom: 15px;
+}
+
+.feature-cards {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(250px, 1fr));
+  gap: 20px;
+}
+
+.card {
+  background-color: white;
+  padding: 20px;
+  border-radius: 8px;
+  box-shadow: 0 2px 4px rgba(0,0,0,0.1);
+  transition: all 0.3s ease;
+  cursor: pointer;
+}
+
+.card:hover {
+  transform: translateY(-2px);
+  box-shadow: 0 4px 12px rgba(0,0,0,0.15);
+}
+
+.card h4 {
+  color: #2c3e50;
+  margin-bottom: 10px;
+  font-size: 16px;
+}
+
+.card p {
+  color: #7f8c8d;
+  margin: 0;
+  font-size: 14px;
+}
+
+/* 设置页面样式 */
+.settings-content {
+  background-color: white;
+  border-radius: 8px;
+  box-shadow: 0 2px 4px rgba(0,0,0,0.1);
+  padding: 20px;
+}
+
+.setting-section {
+  margin-bottom: 30px;
+}
+
+.setting-section h3 {
+  color: #2c3e50;
+  margin-bottom: 15px;
+  padding-bottom: 10px;
+  border-bottom: 2px solid #ecf0f1;
+}
+
+.setting-item {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  padding: 10px 0;
+  border-bottom: 1px solid #ecf0f1;
+}
+
+.setting-item label {
+  font-weight: 500;
+  color: #2c3e50;
+}
+
+.setting-input {
+  padding: 8px 12px;
+  border: 1px solid #ddd;
+  border-radius: 4px;
+  width: 200px;
+}
+
+/* 统计页面样式 */
+.statistics-content {
+  background-color: white;
+  border-radius: 8px;
+  box-shadow: 0 2px 4px rgba(0,0,0,0.1);
+  padding: 20px;
+}
+
+.stat-cards {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+  gap: 20px;
+}
+
+.stat-card {
+  background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+  color: white;
+  padding: 20px;
+  border-radius: 8px;
+  text-align: center;
+}
+
+.stat-card h4 {
+  margin: 0 0 10px 0;
+  font-size: 14px;
+  opacity: 0.9;
+}
+
+.stat-number {
+  font-size: 32px;
+  font-weight: bold;
+  margin: 0;
+}
+
+/* 占位内容样式 */
+.placeholder-content {
+  background-color: white;
+  border-radius: 8px;
+  box-shadow: 0 2px 4px rgba(0,0,0,0.1);
+  padding: 40px;
+  text-align: center;
+}
+
+.placeholder-content p {
+  color: #7f8c8d;
+  font-size: 16px;
+  margin: 0;
+}
+
 .welcome-section {
   background-color: white;
   padding: 2rem;
@@ -553,36 +910,6 @@ export default {
 .welcome-section h2 {
   color: #2196F3;
   margin-bottom: 1rem;
-}
-
-.feature-cards {
-  display: grid;
-  grid-template-columns: repeat(auto-fit, minmax(300px, 1fr));
-  gap: 1.5rem;
-}
-
-.card {
-  background-color: white;
-  padding: 1.5rem;
-  border-radius: 8px;
-  box-shadow: 0 2px 4px rgba(0,0,0,0.1);
-  transition: transform 0.2s;
-  cursor: pointer;
-}
-
-.card:hover {
-  transform: translateY(-2px);
-  box-shadow: 0 4px 8px rgba(0,0,0,0.15);
-}
-
-.card h3 {
-  color: #333;
-  margin-bottom: 0.5rem;
-}
-
-.card p {
-  color: #666;
-  margin: 0;
 }
 
 /* 学生管理样式 */

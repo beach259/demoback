@@ -7,11 +7,13 @@ CREATE TABLE student (
     phone VARCHAR(20) COMMENT '手机号',
     email VARCHAR(100) COMMENT '邮箱',
     address VARCHAR(255) COMMENT '家庭住址',
-    age INT COMMENT '年龄'
+    age INT COMMENT '年龄',
+    info_completed BOOLEAN DEFAULT FALSE COMMENT '信息是否完善',
+    modification_count INT DEFAULT 0 COMMENT '信息修改次数'
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COMMENT='学生基本信息表';
 
-INSERT INTO student (student_id, studentname, password, phone, email, address, age)
-VALUES ('S2025001', '张三', '123456', NULL, NULL ,NULL , NULL);
+INSERT INTO student (student_id, studentname, password, phone, email, address, age, info_completed, modification_count)
+VALUES ('S2025001', '张三', '123456', NULL, NULL ,NULL , NULL, FALSE, 0);
 
 
 -- 管理员表

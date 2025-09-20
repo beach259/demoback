@@ -158,4 +158,57 @@ public class StudentController {
             return ResponseEntity.status(500).body(response);
         }
     }
+    
+    /**
+     * 学生信息完善接口（只能修改一次）
+     */
+    @PutMapping("/{studentId}/complete-info")
+    public ResponseEntity<Map<String, Object>> completeStudentInfo(@PathVariable String studentId, @RequestBody Student student) {
+        Map<String, Object> response = new HashMap<>();
+        try {
+            // 确保路径参数和请求体中的学生ID一致
+            student.setStudentId(studentId);
+            
+            // 验证必填字段
+            if (student.getPhone() == null || student.getPhone().trim().isEmpty()) {
+                response.put("success", false);
+                response.put("message", "手机号不能为空");
+                return ResponseEntity.badRequest().body(response);
+            }
+            
+            if (student.getEmail() == null || student.getEmail().trim().isEmpty()) {
+                response.put("success", false);
+                response.put("message", "邮箱不能为空");
+                return ResponseEntity.badRequest().body(response);
+            }
+            
+            if (student.getAddress() == null || student.getAddress().trim().isEmpty()) {
+                response.put("success", false);
+                response.put("message", "地址不能为空");
+                return ResponseEntity.badRequest().body(response);
+            }
+            
+            if (student.getAge() == null || student.getAge() <= 0) {
+                response.put("success", false);
+                response.put("message", "年龄必须为正整数");
+                return ResponseEntity.badRequest().body(response);
+            }
+            
+            boolean success = studentService.updateStudentInfo(student);
+            if (success) {
+                response.put("success", true);
+                response.put("message", "信息完善成功");
+                response.put("data", student);
+                return ResponseEntity.ok(response);
+            } else {
+                response.put("success", false);
+                response.put("message", "信息已完善或学生不存在，无法再次修改");
+                return ResponseEntity.badRequest().body(response);
+            }
+        } catch (Exception e) {
+            response.put("success", false);
+            response.put("message", "信息完善失败: " + e.getMessage());
+            return ResponseEntity.status(500).body(response);
+        }
+    }
 }

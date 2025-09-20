@@ -11,4 +11,6 @@ public class Student {
     private String email;
     private String address;
     private Integer age;
+    private Boolean infoCompleted;
+    private Integer modificationCount;
 }

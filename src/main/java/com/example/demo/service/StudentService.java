@@ -41,6 +41,14 @@ public class StudentService {
             student.setPassword("123456"); // 默认密码
         }
         
+        // 设置默认值
+        if (student.getInfoCompleted() == null) {
+            student.setInfoCompleted(false);
+        }
+        if (student.getModificationCount() == null) {
+            student.setModificationCount(0);
+        }
+        
         return studentMapper.insert(student) > 0;
     }
     
@@ -54,6 +62,28 @@ public class StudentService {
         }
         
         return studentMapper.update(student) > 0;
+    }
+    
+    /**
+     * 学生信息完善（只能修改一次）
+     */
+    public boolean updateStudentInfo(Student student) {
+        // 检查学生是否存在
+        Student existingStudent = studentMapper.findByStudentId(student.getStudentId());
+        if (existingStudent == null) {
+            return false; // 学生不存在
+        }
+        
+        // 检查是否已经完善过信息
+        if (existingStudent.getInfoCompleted() != null && existingStudent.getInfoCompleted()) {
+            return false; // 信息已完善，不能再次修改
+        }
+        
+        // 设置信息完善状态和修改次数
+        student.setInfoCompleted(true);
+        student.setModificationCount(1);
+        
+        return studentMapper.updateStudentInfo(student) > 0;
     }
     
     /**
