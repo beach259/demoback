@@ -34,6 +34,14 @@
           </div>
           <div 
             class="tab-item" 
+            :class="{ 'active': activeTab === 'dormitory' }"
+            @click="activeTab = 'dormitory'"
+          >
+            <i class="icon">🏠</i>
+            <span>宿舍管理</span>
+          </div>
+          <div 
+            class="tab-item" 
             :class="{ 'active': activeTab === 'staff' }"
             @click="activeTab = 'staff'"
           >
@@ -100,6 +108,10 @@
                 <h4>学生管理</h4>
                 <p>管理系统中的所有学生信息</p>
               </div>
+              <div class="card" @click="activeTab = 'dormitory'">
+                <h4>宿舍管理</h4>
+                <p>管理宿舍楼栋、房间和学生分配</p>
+              </div>
               <div class="card" @click="activeTab = 'staff'">
                 <h4>教职工管理</h4>
                 <p>管理系统中的所有教职工信息</p>
@@ -130,6 +142,7 @@
               <span>姓名</span>
               <span>邮箱</span>
               <span>手机号</span>
+              <span>性别</span>
               <span>操作</span>
             </div>
             <div v-for="student in students" :key="student.studentId" class="student-item">
@@ -137,10 +150,179 @@
               <span>{{ student.studentname }}</span>
               <span>{{ student.email || '未填写' }}</span>
               <span>{{ student.phone || '未填写' }}</span>
+              <span>{{ student.gender === 'male' ? '男' : student.gender === 'female' ? '女' : '未填写' }}</span>
               <div class="actions">
                 <button class="edit-btn" @click="editStudent(student)">编辑</button>
                 <button class="delete-btn" @click="deleteStudent(student.studentId)">删除</button>
               </div>
+            </div>
+          </div>
+        </div>
+
+        <!-- 宿舍管理页面 -->
+        <div v-if="activeTab === 'dormitory'" class="tab-content">
+          <div class="page-header">
+            <h2>宿舍管理</h2>
+            <div class="header-actions">
+              <button class="add-btn" @click="showAddBuildingModal = true">添加宿舍楼</button>
+              <button class="add-btn" @click="showAddRoomModal = true">添加房间</button>
+            </div>
+          </div>
+
+          <!-- 宿舍管理子标签 -->
+          <div class="sub-tabs">
+            <button 
+              class="sub-tab" 
+              :class="{ 'active': dormitorySubTab === 'buildings' }"
+              @click="dormitorySubTab = 'buildings'"
+            >
+              宿舍楼管理
+            </button>
+            <button 
+              class="sub-tab" 
+              :class="{ 'active': dormitorySubTab === 'rooms' }"
+              @click="dormitorySubTab = 'rooms'"
+            >
+              房间管理
+            </button>
+            <button 
+              class="sub-tab" 
+              :class="{ 'active': dormitorySubTab === 'allocations' }"
+              @click="dormitorySubTab = 'allocations'"
+            >
+              分配管理
+            </button>
+          </div>
+
+          <!-- 宿舍楼管理 -->
+          <div v-if="dormitorySubTab === 'buildings'" class="buildings-section">
+            <div class="buildings-table-container">
+              <table class="buildings-table">
+                <thead>
+                  <tr>
+                    <th>宿舍楼ID</th>
+                    <th>宿舍楼名称</th>
+                    <th>类型</th>
+                    <th>楼层数</th>
+                    <th>每层房间数</th>
+                    <th>总房间数</th>
+                    <th>可用房间</th>
+                    <th>操作</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  <tr v-for="building in buildings" :key="building.buildingId">
+                    <td>{{ building.buildingId }}</td>
+                    <td>{{ building.buildingName }}</td>
+                    <td>{{ building.buildingType === 'male' ? '男生宿舍' : '女生宿舍' }}</td>
+                    <td>{{ building.totalFloors }}层</td>
+                    <td>{{ building.roomsPerFloor }}间</td>
+                    <td>{{ building.totalFloors * building.roomsPerFloor }}间</td>
+                    <td>{{ getBuildingAvailableRooms(building.buildingId) }}间</td>
+                    <td class="actions-cell">
+                      <button class="edit-btn" @click="editBuilding(building)">编辑</button>
+                      <button class="delete-btn" @click="deleteBuilding(building.buildingId)">删除</button>
+                    </td>
+                  </tr>
+                </tbody>
+              </table>
+            </div>
+          </div>
+
+          <!-- 房间管理 -->
+          <div v-if="dormitorySubTab === 'rooms'" class="rooms-section">
+            <div class="filter-section">
+              <select v-model="selectedBuildingFilter" @change="filterRooms">
+                <option value="">所有宿舍楼</option>
+                <option v-for="building in buildings" :key="building.buildingId" :value="building.buildingId">
+                  {{ building.buildingName }}
+                </option>
+              </select>
+              <select v-model="roomStatusFilter" @change="filterRooms">
+                <option value="">所有状态</option>
+                <option value="available">可用</option>
+                <option value="full">已满</option>
+                <option value="maintenance">维护中</option>
+              </select>
+            </div>
+            
+            <div class="buildings-table-container">
+              <table class="buildings-table">
+                <thead>
+                  <tr>
+                    <th>房间ID</th>
+                    <th>房间号</th>
+                    <th>所属楼栋</th>
+                    <th>楼层</th>
+                    <th>床位数</th>
+                    <th>已入住</th>
+                    <th>状态</th>
+                    <th>操作</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  <tr v-for="room in filteredRooms" :key="room.roomId">
+                    <td>{{ room.roomId }}</td>
+                    <td>{{ room.roomNumber }}</td>
+                    <td>{{ room.buildingName }}</td>
+                    <td>{{ room.floorNumber }}层</td>
+                    <td>{{ room.bedCount }}</td>
+                    <td>{{ room.occupiedCount }}</td>
+                    <td>
+                      <span :class="'status-' + room.roomStatus">
+                        {{ getRoomStatusText(room.roomStatus) }}
+                      </span>
+                    </td>
+                    <td class="actions-cell">
+                      <button class="edit-btn" @click="editRoom(room)">编辑</button>
+                      <button class="delete-btn" @click="deleteRoom(room.roomId)">删除</button>
+                    </td>
+                  </tr>
+                </tbody>
+              </table>
+            </div>
+          </div>
+
+          <!-- 分配管理 -->
+          <div v-if="dormitorySubTab === 'allocations'" class="allocations-section">
+            <div class="buildings-table-container">
+              <table class="buildings-table">
+                <thead>
+                  <tr>
+                    <th>分配ID</th>
+                    <th>学生ID</th>
+                    <th>学生姓名</th>
+                    <th>宿舍楼</th>
+                    <th>房间号</th>
+                    <th>床位号</th>
+                    <th>入住时间</th>
+                    <th>状态</th>
+                    <th>操作</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  <tr v-for="allocation in allocations" :key="allocation.allocationId">
+                    <td>{{ allocation.allocationId }}</td>
+                    <td>{{ allocation.studentId }}</td>
+                    <td>{{ allocation.studentName }}</td>
+                    <td>{{ allocation.buildingName }}</td>
+                    <td>{{ allocation.roomNumber }}</td>
+                    <td>{{ allocation.bedNumber }}</td>
+                    <td>{{ allocation.checkInDate || '未入住' }}</td>
+                    <td>
+                      <span :class="'status-' + allocation.allocationStatus">
+                        {{ getAllocationStatusText(allocation.allocationStatus) }}
+                      </span>
+                    </td>
+                    <td class="actions-cell">
+                      <button class="edit-btn" @click="editAllocation(allocation)">编辑</button>
+                      <button class="delete-btn" @click="removeAllocation(allocation.allocationId)">
+                        取消分配
+                      </button>
+                    </td>
+                  </tr>
+                </tbody>
+              </table>
             </div>
           </div>
         </div>
@@ -296,6 +478,14 @@
             <label>年龄:</label>
             <input v-model="newStudent.age" type="number" placeholder="请输入年龄">
           </div>
+          <div class="form-group">
+            <label>性别:</label>
+            <select v-model="newStudent.gender">
+              <option value="">请选择性别</option>
+              <option value="male">男</option>
+              <option value="female">女</option>
+            </select>
+          </div>
           <div class="form-actions">
             <button type="button" @click="closeModal" class="cancel-btn">取消</button>
             <button type="submit" class="submit-btn">添加</button>
@@ -339,6 +529,14 @@
           <div class="form-group">
             <label>年龄:</label>
             <input v-model="editingStudent.age" type="number" placeholder="请输入年龄">
+          </div>
+          <div class="form-group">
+            <label>性别:</label>
+            <select v-model="editingStudent.gender">
+              <option value="">请选择性别</option>
+              <option value="male">男</option>
+              <option value="female">女</option>
+            </select>
           </div>
           <div class="form-actions">
             <button type="button" @click="closeEditModal" class="cancel-btn">取消</button>
@@ -396,6 +594,297 @@
       </div>
     </div>
   </div>
+
+  <!-- 添加宿舍楼模态框 -->
+  <div v-if="showAddBuildingModal" class="modal-overlay" @click="closeAddBuildingModal">
+    <div class="modal building-modal" @click.stop>
+      <div class="modal-header">
+        <h3>添加宿舍楼</h3>
+        <button @click="closeAddBuildingModal" class="close-btn">&times;</button>
+      </div>
+      <div class="modal-body">
+        <form @submit.prevent="addBuilding">
+          <div class="form-group">
+            <label>宿舍楼名称:</label>
+            <input v-model="newBuilding.buildingName" type="text" placeholder="请输入宿舍楼名称" required>
+          </div>
+          <div class="form-group">
+            <label>宿舍楼类型:</label>
+            <select v-model="newBuilding.buildingType" required>
+              <option value="">请选择宿舍楼类型</option>
+              <option value="male">男生楼</option>
+              <option value="female">女生楼</option>
+            </select>
+          </div>
+          <div class="form-group">
+            <label>总楼层数:</label>
+            <input v-model="newBuilding.totalFloors" type="number" min="1" placeholder="请输入总楼层数" required>
+          </div>
+          <div class="form-group">
+            <label>每层房间数:</label>
+            <input v-model="newBuilding.roomsPerFloor" type="number" min="1" placeholder="请输入每层房间数" required>
+          </div>
+          <div class="form-actions">
+            <button type="button" @click="closeAddBuildingModal" class="cancel-btn">取消</button>
+            <button type="submit" class="submit-btn">添加</button>
+          </div>
+        </form>
+      </div>
+    </div>
+  </div>
+
+  <!-- 编辑宿舍楼模态框 -->
+  <div v-if="showEditBuildingModal" class="modal-overlay" @click="closeEditBuildingModal">
+    <div class="modal building-modal" @click.stop>
+      <div class="modal-header">
+        <h3>编辑宿舍楼</h3>
+        <button @click="closeEditBuildingModal" class="close-btn">&times;</button>
+      </div>
+      <div class="modal-body">
+        <form @submit.prevent="updateBuilding">
+          <div class="form-group">
+            <label>宿舍楼ID:</label>
+            <input v-model="editingBuilding.buildingId" type="text" readonly>
+          </div>
+          <div class="form-group">
+            <label>宿舍楼名称:</label>
+            <input v-model="editingBuilding.buildingName" type="text" placeholder="请输入宿舍楼名称" required>
+          </div>
+          <div class="form-group">
+            <label>宿舍楼类型:</label>
+            <select v-model="editingBuilding.buildingType" required>
+              <option value="">请选择宿舍楼类型</option>
+              <option value="male">男生楼</option>
+              <option value="female">女生楼</option>
+            </select>
+          </div>
+          <div class="form-group">
+            <label>总楼层数:</label>
+            <input v-model="editingBuilding.totalFloors" type="number" min="1" placeholder="请输入总楼层数" required>
+          </div>
+          <div class="form-group">
+            <label>每层房间数:</label>
+            <input v-model="editingBuilding.roomsPerFloor" type="number" min="1" placeholder="请输入每层房间数" required>
+          </div>
+          <div class="form-actions">
+            <button type="button" @click="closeEditBuildingModal" class="cancel-btn">取消</button>
+            <button type="submit" class="submit-btn">保存</button>
+          </div>
+        </form>
+      </div>
+    </div>
+  </div>
+
+  <!-- 添加房间模态框 -->
+  <div v-if="showAddRoomModal" class="modal-overlay" @click="closeAddRoomModal">
+    <div class="modal" @click.stop>
+      <div class="modal-header">
+        <h3>添加房间</h3>
+        <button @click="closeAddRoomModal" class="close-btn">&times;</button>
+      </div>
+      <div class="modal-body">
+        <form @submit.prevent="addRoom">
+          <div class="form-group">
+            <label>所属宿舍楼:</label>
+            <select v-model="newRoom.buildingId" required>
+              <option value="">请选择宿舍楼</option>
+              <option v-for="building in buildings" :key="building.buildingId" :value="building.buildingId">
+                {{ building.buildingName }}
+              </option>
+            </select>
+          </div>
+          <div class="form-group">
+            <label>房间号:</label>
+            <input v-model="newRoom.roomNumber" type="text" placeholder="请输入房间号" required>
+          </div>
+          <div class="form-group">
+            <label>楼层号:</label>
+            <input v-model="newRoom.floorNumber" type="number" min="1" placeholder="请输入楼层号" required>
+          </div>
+          <div class="form-group">
+            <label>床位数:</label>
+            <input v-model="newRoom.bedCount" type="number" min="1" max="8" placeholder="请输入床位数" required>
+          </div>
+          <div class="form-group">
+            <label>房间状态:</label>
+            <select v-model="newRoom.roomStatus" required>
+              <option value="available">可用</option>
+              <option value="maintenance">维护中</option>
+            </select>
+          </div>
+          <div class="form-actions">
+            <button type="button" @click="closeAddRoomModal" class="cancel-btn">取消</button>
+            <button type="submit" class="submit-btn">添加</button>
+          </div>
+        </form>
+      </div>
+    </div>
+  </div>
+
+  <!-- 编辑房间模态框 -->
+  <div v-if="showEditRoomModal" class="modal-overlay" @click="closeEditRoomModal">
+    <div class="modal" @click.stop>
+      <div class="modal-header">
+        <h3>编辑房间</h3>
+        <button @click="closeEditRoomModal" class="close-btn">&times;</button>
+      </div>
+      <div class="modal-body">
+        <form @submit.prevent="updateRoom">
+          <div class="form-group">
+            <label>房间ID:</label>
+            <input v-model="editingRoom.roomId" type="text" readonly>
+          </div>
+          <div class="form-group">
+            <label>所属宿舍楼:</label>
+            <select v-model="editingRoom.buildingId" required>
+              <option value="">请选择宿舍楼</option>
+              <option v-for="building in buildings" :key="building.buildingId" :value="building.buildingId">
+                {{ building.buildingName }}
+              </option>
+            </select>
+          </div>
+          <div class="form-group">
+            <label>房间号:</label>
+            <input v-model="editingRoom.roomNumber" type="text" placeholder="请输入房间号" required>
+          </div>
+          <div class="form-group">
+            <label>楼层号:</label>
+            <input v-model="editingRoom.floorNumber" type="number" min="1" placeholder="请输入楼层号" required>
+          </div>
+          <div class="form-group">
+            <label>床位数:</label>
+            <input v-model="editingRoom.bedCount" type="number" min="1" max="8" placeholder="请输入床位数" required>
+          </div>
+          <div class="form-group">
+            <label>房间状态:</label>
+            <select v-model="editingRoom.roomStatus" required>
+              <option value="available">可用</option>
+              <option value="full">已满</option>
+              <option value="maintenance">维护中</option>
+            </select>
+          </div>
+          <div class="form-actions">
+            <button type="button" @click="closeEditRoomModal" class="cancel-btn">取消</button>
+            <button type="submit" class="submit-btn">保存</button>
+          </div>
+        </form>
+      </div>
+    </div>
+  </div>
+
+  <!-- 添加分配模态框 -->
+  <div v-if="showAddAllocationModal" class="modal-overlay" @click="closeAddAllocationModal">
+    <div class="modal" @click.stop>
+      <div class="modal-header">
+        <h3>新增分配</h3>
+        <button @click="closeAddAllocationModal" class="close-btn">&times;</button>
+      </div>
+      <div class="modal-body">
+        <form @submit.prevent="addAllocation">
+          <div class="form-group">
+            <label>学生ID:</label>
+            <input v-model="newAllocation.studentId" type="text" placeholder="请输入学生ID" required>
+          </div>
+          <div class="form-group">
+            <label>宿舍楼:</label>
+            <select v-model="newAllocation.buildingId" @change="loadAvailableRooms" required>
+              <option value="">请选择宿舍楼</option>
+              <option v-for="building in buildings" :key="building.buildingId" :value="building.buildingId">
+                {{ building.buildingName }}
+              </option>
+            </select>
+          </div>
+          <div class="form-group">
+            <label>房间:</label>
+            <select v-model="newAllocation.roomId" @change="loadAvailableBeds" required>
+              <option value="">请选择房间</option>
+              <option v-for="room in availableRooms" :key="room.roomId" :value="room.roomId">
+                {{ room.roomNumber }} ({{ room.bedCount - room.occupiedCount }}个空床位)
+              </option>
+            </select>
+          </div>
+          <div class="form-group">
+            <label>床位号:</label>
+            <select v-model="newAllocation.bedNumber" required>
+              <option value="">请选择床位</option>
+              <option v-for="bed in availableBeds" :key="bed" :value="bed">
+                床位 {{ bed }}
+              </option>
+            </select>
+          </div>
+          <div class="form-actions">
+            <button type="button" @click="closeAddAllocationModal" class="cancel-btn">取消</button>
+            <button type="submit" class="submit-btn">分配</button>
+          </div>
+        </form>
+      </div>
+    </div>
+  </div>
+
+  <!-- 编辑分配模态框 -->
+  <div v-if="showEditAllocationModal" class="modal-overlay" @click="closeEditAllocationModal">
+    <div class="modal" @click.stop>
+      <div class="modal-header">
+        <h3>编辑分配</h3>
+        <button @click="closeEditAllocationModal" class="close-btn">&times;</button>
+      </div>
+      <div class="modal-body">
+        <div class="info-tip">
+          <p><strong>提示：</strong>您可以单独修改分配状态，也可以修改宿舍信息。可以部分修改宿舍信息字段。</p>
+        </div>
+        <form @submit.prevent="updateAllocation">
+          <div class="form-group">
+            <label>分配ID:</label>
+            <input v-model="editingAllocation.allocationId" type="text" readonly>
+          </div>
+          <div class="form-group">
+            <label>学生ID:</label>
+            <input v-model="editingAllocation.studentId" type="text" readonly>
+          </div>
+          <div class="form-group">
+            <label>宿舍楼:</label>
+            <select v-model="editingAllocation.buildingId" @change="loadAvailableRoomsForEdit">
+              <option value="">请选择宿舍楼</option>
+              <option v-for="building in buildings" :key="building.buildingId" :value="building.buildingId">
+                {{ building.buildingName }}
+              </option>
+            </select>
+          </div>
+          <div class="form-group">
+            <label>房间:</label>
+            <select v-model="editingAllocation.roomId" @change="loadAvailableBedsForEdit">
+              <option value="">请选择房间</option>
+              <option v-for="room in availableRoomsForEdit" :key="room.roomId" :value="room.roomId">
+                {{ room.roomNumber }} ({{ room.bedCount - room.occupiedCount }}个空床位)
+              </option>
+            </select>
+          </div>
+          <div class="form-group">
+            <label>床位号:</label>
+            <select v-model="editingAllocation.bedNumber">
+              <option value="">请选择床位</option>
+              <option v-for="bed in availableBedsForEdit" :key="bed" :value="bed">
+                床位 {{ bed }}
+              </option>
+            </select>
+          </div>
+          <div class="form-group">
+            <label>分配状态:</label>
+            <select v-model="editingAllocation.allocationStatus" required>
+              <option value="pending">待确认</option>
+              <option value="confirmed">已确认</option>
+
+            </select>
+          </div>
+          <div class="form-actions">
+            <button type="button" @click="closeEditAllocationModal" class="cancel-btn">取消</button>
+            <button type="submit" class="submit-btn">保存</button>
+          </div>
+        </form>
+      </div>
+    </div>
+  </div>
+
 </template>
 
 <script>
@@ -407,10 +896,15 @@ export default {
     return {
       showLogout: false,
       activeTab: 'dashboard', // 当前激活的标签页
+      dormitorySubTab: 'buildings', // 宿舍管理子标签页
       showAddModal: false,
       showEditModal: false,
       showAddStaffModal: false,
       showEditStaffModal: false,
+      showAddBuildingModal: false,
+      showEditBuildingModal: false,
+      showAddRoomModal: false,
+      showEditRoomModal: false,
       userInfo: {
         userId: '',
         userType: '管理员'
@@ -424,7 +918,8 @@ export default {
         phone: '',
         email: '',
         address: '',
-        age: null
+        age: null,
+        gender: ''
       },
       editingStudent: {
         studentId: '',
@@ -433,7 +928,8 @@ export default {
         phone: '',
         email: '',
         address: '',
-        age: null
+        age: null,
+        gender: ''
       },
       newStaff: {
         staffId: '',
@@ -442,7 +938,65 @@ export default {
       editingStaff: {
         staffId: '',
         password: ''
-      }
+      },
+      // 宿舍管理相关数据
+      buildings: [],
+      rooms: [],
+      assignments: [],
+      allocations: [],
+      newBuilding: {
+        buildingName: '',
+        buildingType: '',
+        totalFloors: null,
+        roomsPerFloor: null
+      },
+      editingBuilding: {
+        buildingId: null,
+        buildingName: '',
+        buildingType: '',
+        totalFloors: null,
+        roomsPerFloor: null
+      },
+      newRoom: {
+        buildingId: null,
+        roomNumber: '',
+        floorNumber: null,
+        bedCount: 4,
+        roomStatus: 'available'
+      },
+      editingRoom: {
+        roomId: null,
+        buildingId: null,
+        roomNumber: '',
+        floorNumber: null,
+        bedCount: 4,
+        roomStatus: 'available'
+      },
+      // 分配管理相关数据
+      showAddAllocationModal: false,
+      showEditAllocationModal: false,
+      newAllocation: {
+        studentId: '',
+        buildingId: null,
+        roomId: null,
+        bedNumber: null
+      },
+      editingAllocation: {
+        allocationId: null,
+        studentId: '',
+        buildingId: null,
+        roomId: null,
+        bedNumber: null,
+        allocationStatus: 'pending'
+      },
+      availableRooms: [],
+      availableBeds: [],
+      availableRoomsForEdit: [],
+      availableBedsForEdit: [],
+      // 房间筛选相关属性
+      selectedBuildingFilter: '',
+      roomStatusFilter: '',
+      filteredRooms: []
     }
   },
   mounted() {
@@ -455,6 +1009,10 @@ export default {
     this.loadStudents();
     // 加载教职工列表
     this.loadStaff();
+    // 加载宿舍相关数据
+    this.loadBuildings();
+    this.loadRooms();
+    this.loadAssignments();
   },
   methods: {
     logout() {
@@ -537,7 +1095,8 @@ export default {
         phone: '',
         email: '',
         address: '',
-        age: null
+        age: null,
+        gender: ''
       };
     },
     closeEditModal() {
@@ -549,7 +1108,8 @@ export default {
         phone: '',
         email: '',
         address: '',
-        age: null
+        age: null,
+        gender: ''
       };
     },
     
@@ -632,6 +1192,490 @@ export default {
         staffId: '',
         password: ''
       };
+    },
+    
+    // 宿舍管理相关方法
+    async loadBuildings() {
+      try {
+        const response = await axios.get('/api/dormitory/buildings');
+        if (response.data.success) {
+          this.buildings = response.data.data;
+          console.log('Loaded buildings:', this.buildings);
+        } else {
+          console.error('加载宿舍楼列表失败:', response.data.message);
+        }
+      } catch (error) {
+        console.error('加载宿舍楼列表失败:', error);
+      }
+    },
+    
+    // 计算指定宿舍楼的可用房间数
+    getBuildingAvailableRooms(buildingId) {
+      if (!this.rooms || this.rooms.length === 0) {
+        console.log(`No rooms data available for building ${buildingId}`);
+        return 0;
+      }
+      const availableRooms = this.rooms.filter(room => 
+        room.buildingId === buildingId && room.roomStatus === 'available'
+      );
+      console.log(`Building ${buildingId} available rooms:`, availableRooms.length, 'out of', this.rooms.filter(r => r.buildingId === buildingId).length);
+      return availableRooms.length;
+    },
+    
+    async loadRooms() {
+      try {
+        const response = await axios.get('/api/dormitory/rooms');
+        if (response.data.success) {
+          this.rooms = response.data.data;
+          this.filteredRooms = this.rooms; // 初始化筛选结果
+          console.log('Loaded rooms:', this.rooms);
+        } else {
+          console.error('加载房间列表失败:', response.data.message);
+        }
+      } catch (error) {
+        console.error('加载房间列表失败:', error);
+      }
+    },
+    
+    async loadAssignments() {
+      try {
+        const response = await axios.get('/api/dormitory/assignments');
+        if (response.data.success) {
+          this.allocations = response.data.data;
+        } else {
+          console.error('加载分配信息失败:', response.data.message);
+          alert('加载分配信息失败: ' + response.data.message);
+        }
+      } catch (error) {
+        console.error('加载分配信息失败:', error);
+        alert('加载分配信息失败，请检查网络连接');
+      }
+    },
+    
+    // 宿舍楼管理
+    async addBuilding() {
+      try {
+        const response = await axios.post('/api/dormitory/buildings', this.newBuilding);
+        if (response.data.success) {
+          alert('添加宿舍楼成功');
+          this.closeAddBuildingModal();
+          this.loadBuildings();
+        } else {
+          alert('添加宿舍楼失败: ' + response.data.message);
+        }
+      } catch (error) {
+        console.error('添加宿舍楼失败:', error);
+        alert('添加宿舍楼失败，请检查网络连接');
+      }
+    },
+    
+    editBuilding(building) {
+      this.editingBuilding = { ...building };
+      this.showEditBuildingModal = true;
+    },
+    
+    async updateBuilding() {
+      try {
+        const response = await axios.put(`/api/dormitory/buildings/${this.editingBuilding.buildingId}`, this.editingBuilding);
+        if (response.data.success) {
+          alert('更新宿舍楼成功');
+          this.closeEditBuildingModal();
+          this.loadBuildings();
+        } else {
+          alert('更新宿舍楼失败: ' + response.data.message);
+        }
+      } catch (error) {
+        console.error('更新宿舍楼失败:', error);
+        alert('更新宿舍楼失败，请检查网络连接');
+      }
+    },
+    
+    async deleteBuilding(buildingId) {
+      if (confirm('确定要删除这个宿舍楼吗？这将删除该楼下的所有房间和分配信息。')) {
+        try {
+          const response = await axios.delete(`/api/dormitory/buildings/${buildingId}`);
+          if (response.data.success) {
+            alert('删除宿舍楼成功');
+            this.loadBuildings();
+            this.loadRooms();
+            this.loadAssignments();
+          } else {
+            alert('删除宿舍楼失败: ' + response.data.message);
+          }
+        } catch (error) {
+          console.error('删除宿舍楼失败:', error);
+          alert('删除宿舍楼失败，请检查网络连接');
+        }
+      }
+    },
+    
+    // 房间管理
+    async addRoom() {
+      try {
+        const response = await axios.post('/api/dormitory/rooms', this.newRoom);
+        if (response.data.success) {
+          alert('添加房间成功');
+          this.closeAddRoomModal();
+          this.loadRooms();
+        } else {
+          alert('添加房间失败: ' + response.data.message);
+        }
+      } catch (error) {
+        console.error('添加房间失败:', error);
+        alert('添加房间失败，请检查网络连接');
+      }
+    },
+    
+    editRoom(room) {
+      this.editingRoom = { ...room };
+      this.showEditRoomModal = true;
+    },
+    
+    async updateRoom() {
+      try {
+        const response = await axios.put(`/api/dormitory/rooms/${this.editingRoom.roomId}`, this.editingRoom);
+        if (response.data.success) {
+          alert('更新房间成功');
+          this.closeEditRoomModal();
+          this.loadRooms();
+        } else {
+          alert('更新房间失败: ' + response.data.message);
+        }
+      } catch (error) {
+        console.error('更新房间失败:', error);
+        alert('更新房间失败，请检查网络连接');
+      }
+    },
+    
+    async deleteRoom(roomId) {
+      if (confirm('确定要删除这个房间吗？这将删除该房间的所有分配信息。')) {
+        try {
+          const response = await axios.delete(`/api/dormitory/rooms/${roomId}`);
+          if (response.data.success) {
+            alert('删除房间成功');
+            this.loadRooms();
+            this.loadAssignments();
+          } else {
+            alert('删除房间失败: ' + response.data.message);
+          }
+        } catch (error) {
+          console.error('删除房间失败:', error);
+          alert('删除房间失败，请检查网络连接');
+        }
+      }
+    },
+    
+    // 房间筛选方法
+    filterRooms() {
+      let filtered = this.rooms;
+      
+      // 按宿舍楼筛选
+      if (this.selectedBuildingFilter) {
+        filtered = filtered.filter(room => room.buildingId == this.selectedBuildingFilter);
+      }
+      
+      // 按状态筛选
+      if (this.roomStatusFilter) {
+        filtered = filtered.filter(room => room.roomStatus === this.roomStatusFilter);
+      }
+      
+      this.filteredRooms = filtered;
+    },
+    
+    // 获取房间状态文本
+    getRoomStatusText(status) {
+      const statusMap = {
+        'available': '可用',
+        'full': '已满',
+        'maintenance': '维护中'
+      };
+      return statusMap[status] || status;
+    },
+    
+    // 获取下一个状态文本
+    getNextStatusText(currentStatus) {
+      const nextStatusMap = {
+        'available': '设为维护',
+        'full': '设为维护',
+        'maintenance': '设为可用'
+      };
+      return nextStatusMap[currentStatus] || '切换状态';
+    },
+    
+    // 切换房间状态
+    async toggleRoomStatus(room) {
+      const nextStatus = room.roomStatus === 'maintenance' ? 'available' : 'maintenance';
+      try {
+        const response = await axios.put(`/api/dormitory/rooms/${room.roomId}/status`, {
+          roomStatus: nextStatus
+        });
+        if (response.data.success) {
+          alert('房间状态更新成功');
+          this.loadRooms();
+        } else {
+          alert('房间状态更新失败: ' + response.data.message);
+        }
+      } catch (error) {
+        console.error('房间状态更新失败:', error);
+        alert('房间状态更新失败，请检查网络连接');
+      }
+    },
+    
+    // 分配管理
+    async removeAllocation(allocationId) {
+      if (confirm('确定要取消这个分配吗？')) {
+        try {
+          const response = await axios.delete(`/api/dormitory/assignments/${allocationId}`);
+          if (response.data.success) {
+            alert('取消分配成功');
+            this.loadAssignments();
+            this.loadRooms();
+          } else {
+            alert('取消分配失败: ' + response.data.message);
+          }
+        } catch (error) {
+          console.error('取消分配失败:', error);
+          alert('取消分配失败，请检查网络连接');
+        }
+      }
+    },
+    
+    async deleteAssignment(assignmentId) {
+      if (confirm('确定要删除这个分配记录吗？')) {
+        try {
+          const response = await axios.delete(`/api/dormitory/assignments/${assignmentId}`);
+          if (response.data.success) {
+            alert('删除分配记录成功');
+            this.loadAssignments();
+            this.loadRooms();
+          } else {
+            alert('删除分配记录失败: ' + response.data.message);
+          }
+        } catch (error) {
+          console.error('删除分配记录失败:', error);
+          alert('删除分配记录失败，请检查网络连接');
+        }
+      }
+    },
+    
+    // 模态框控制
+    closeAddBuildingModal() {
+      this.showAddBuildingModal = false;
+      this.newBuilding = {
+        buildingName: '',
+        buildingType: '',
+        totalFloors: null,
+        roomsPerFloor: null
+      };
+    },
+    
+    closeEditBuildingModal() {
+      this.showEditBuildingModal = false;
+      this.editingBuilding = {
+        buildingId: null,
+        buildingName: '',
+        buildingType: '',
+        totalFloors: null,
+        roomsPerFloor: null
+      };
+    },
+    
+    closeAddRoomModal() {
+      this.showAddRoomModal = false;
+      this.newRoom = {
+        buildingId: null,
+        roomNumber: '',
+        floorNumber: null,
+        bedCount: 4,
+        roomStatus: 'available'
+      };
+    },
+    
+    closeEditRoomModal() {
+      this.showEditRoomModal = false;
+      this.editingRoom = {
+        roomId: null,
+        buildingId: null,
+        roomNumber: '',
+        floorNumber: null,
+        bedCount: 4,
+        roomStatus: 'available'
+      };
+    },
+    
+    // 分配管理方法
+    async addAllocation() {
+      try {
+        const response = await axios.post('/api/dormitory/assignments', this.newAllocation);
+        if (response.data.success) {
+          alert('分配成功');
+          this.closeAddAllocationModal();
+          this.loadAssignments();
+          this.loadRooms();
+        } else {
+          alert('分配失败: ' + response.data.message);
+        }
+      } catch (error) {
+        console.error('分配失败:', error);
+        alert('分配失败，请检查网络连接');
+      }
+    },
+    
+    editAllocation(allocation) {
+      this.editingAllocation = { ...allocation };
+      this.showEditAllocationModal = true;
+      // 加载可用房间和床位
+      this.loadAvailableRoomsForEdit();
+      // 如果已经有房间ID，也加载对应的床位
+      if (this.editingAllocation.roomId) {
+        this.loadAvailableBedsForEdit();
+      }
+    },
+    
+    async updateAllocation() {
+      try {
+        const response = await axios.put(`/api/dormitory/assignments/${this.editingAllocation.allocationId}`, this.editingAllocation);
+        if (response.data.success) {
+          alert('更新分配成功');
+          this.closeEditAllocationModal();
+          this.loadAssignments();
+          this.loadRooms();
+        } else {
+          alert('更新分配失败: ' + response.data.message);
+        }
+      } catch (error) {
+        console.error('更新分配失败:', error);
+        alert('更新分配失败，请检查网络连接');
+      }
+    },
+    
+    closeAddAllocationModal() {
+      this.showAddAllocationModal = false;
+      this.newAllocation = {
+        studentId: '',
+        buildingId: null,
+        roomId: null,
+        bedNumber: null
+      };
+      this.availableRooms = [];
+      this.availableBeds = [];
+    },
+    
+    closeEditAllocationModal() {
+      this.showEditAllocationModal = false;
+      this.editingAllocation = {
+        allocationId: null,
+        studentId: '',
+        buildingId: null,
+        roomId: null,
+        bedNumber: null,
+        allocationStatus: 'pending'
+      };
+      this.availableRoomsForEdit = [];
+      this.availableBedsForEdit = [];
+    },
+    
+    // 加载可用房间和床位
+    async loadAvailableRooms() {
+      if (!this.newAllocation.buildingId) {
+        this.availableRooms = [];
+        return;
+      }
+      
+      try {
+        const response = await axios.get(`/api/dormitory/rooms/available/${this.newAllocation.buildingId}`);
+        if (response.data.success) {
+          this.availableRooms = response.data.data;
+        } else {
+          console.error('加载可用房间失败:', response.data.message);
+        }
+      } catch (error) {
+        console.error('加载可用房间失败:', error);
+      }
+    },
+    
+    async loadAvailableBeds() {
+      if (!this.newAllocation.roomId) {
+        this.availableBeds = [];
+        return;
+      }
+      
+      try {
+        const response = await axios.get(`/api/dormitory/beds/available/${this.newAllocation.roomId}`);
+        if (response.data.success) {
+          this.availableBeds = response.data.data;
+        } else {
+          console.error('加载可用床位失败:', response.data.message);
+        }
+      } catch (error) {
+        console.error('加载可用床位失败:', error);
+      }
+    },
+    
+    async loadAvailableRoomsForEdit() {
+      if (!this.editingAllocation.buildingId) {
+        this.availableRoomsForEdit = [];
+        return;
+      }
+      
+      try {
+        const response = await axios.get(`/api/dormitory/rooms/available/${this.editingAllocation.buildingId}`);
+        if (response.data.success) {
+          this.availableRoomsForEdit = response.data.data;
+        } else {
+          console.error('加载可用房间失败:', response.data.message);
+        }
+      } catch (error) {
+        console.error('加载可用房间失败:', error);
+      }
+    },
+    
+    async loadAvailableBedsForEdit() {
+      if (!this.editingAllocation.roomId) {
+        this.availableBedsForEdit = [];
+        return;
+      }
+      
+      try {
+        const response = await axios.get(`/api/dormitory/beds/available/${this.editingAllocation.roomId}`);
+        if (response.data.success) {
+          this.availableBedsForEdit = response.data.data;
+        } else {
+          console.error('加载可用床位失败:', response.data.message);
+        }
+      } catch (error) {
+        console.error('加载可用床位失败:', error);
+      }
+    },
+    
+    // 获取宿舍楼名称
+    getBuildingName(buildingId) {
+      const building = this.buildings.find(b => b.buildingId === buildingId);
+      return building ? building.buildingName : '未知';
+    },
+    
+    // 获取房间号
+    getRoomNumber(roomId) {
+      const room = this.rooms.find(r => r.roomId === roomId);
+      return room ? room.roomNumber : '未知';
+    },
+    
+    // 获取学生姓名
+    getStudentName(studentId) {
+      const student = this.students.find(s => s.studentId === studentId);
+      return student ? student.studentname : '未知';
+    },
+    
+
+    
+    getAllocationStatusText(status) {
+      const statusMap = {
+        'pending': '待确认',
+        'confirmed': '已确认',
+        'checked_in': '已入住',
+        'checked_out': '已退宿'
+      };
+      return statusMap[status] || status;
     }
   }
 }
@@ -983,7 +2027,7 @@ export default {
   gap: 1rem;
   padding: 1rem 2rem;
   border-bottom: 1px solid #dee2e6;
-  align-items: center;
+  vertical-align: middle;
 }
 
 .staff-item {
@@ -1004,12 +2048,16 @@ export default {
   gap: 0.5rem;
 }
 
-.edit-btn, .delete-btn {
-  padding: 0.25rem 0.5rem;
-  border: none;
-  border-radius: 3px;
-  cursor: pointer;
-  font-size: 0.8rem;
+.actions-cell {
+  white-space: nowrap;
+}
+
+.actions-cell .edit-btn,
+.actions-cell .delete-btn {
+  margin-right: 8px;
+  padding: 6px 12px;
+  font-size: 12px;
+  border-radius: 4px;
 }
 
 .edit-btn {
@@ -1167,4 +2215,201 @@ export default {
 .submit-btn:hover {
   background-color: #1976D2;
 }
+/* 宿舍楼模态框特殊样式 */
+.building-modal {
+  background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+  position: relative;
+  overflow: hidden;
+}
+
+.building-modal::before {
+  content: '';
+  position: absolute;
+  top: 0;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  background: 
+    radial-gradient(circle at 20% 80%, rgba(120, 119, 198, 0.3) 0%, transparent 50%),
+    radial-gradient(circle at 80% 20%, rgba(255, 255, 255, 0.15) 0%, transparent 50%),
+    radial-gradient(circle at 40% 40%, rgba(120, 119, 198, 0.2) 0%, transparent 50%);
+  pointer-events: none;
+}
+
+.building-modal .modal-header {
+  background: rgba(255, 255, 255, 0.1);
+  backdrop-filter: blur(10px);
+  border-bottom: 1px solid rgba(255, 255, 255, 0.2);
+  position: relative;
+  z-index: 1;
+}
+
+.building-modal .modal-body {
+  background: rgba(255, 255, 255, 0.95);
+  backdrop-filter: blur(10px);
+  position: relative;
+  z-index: 1;
+  padding: 2rem;
+}
+
+.building-modal .form-group select {
+  width: 100%;
+  padding: 0.75rem;
+  border: 1px solid #ddd;
+  border-radius: 4px;
+  font-size: 1rem;
+  box-sizing: border-box;
+  background-color: white;
+}
+
+.building-modal .form-group select:focus {
+  outline: none;
+  border-color: #667eea;
+  box-shadow: 0 0 0 2px rgba(102, 126, 234, 0.2);
+}
+
+/* 宿舍楼表格样式 */
+.buildings-table-container {
+  background-color: white;
+  border-radius: 8px;
+  box-shadow: 0 2px 4px rgba(0,0,0,0.1);
+  overflow: hidden;
+  margin-top: 20px;
+}
+
+.buildings-table {
+  width: 100%;
+  border-collapse: collapse;
+  font-size: 14px;
+}
+
+.buildings-table thead {
+  background-color: #f8f9fa;
+}
+
+.buildings-table th {
+  padding: 15px 12px;
+  text-align: left;
+  font-weight: 600;
+  color: #495057;
+  border-bottom: 2px solid #dee2e6;
+  white-space: nowrap;
+}
+
+.buildings-table td {
+  padding: 12px;
+  border-bottom: 1px solid #dee2e6;
+  vertical-align: middle;
+}
+
+/* 房间状态按钮样式 */
+.status-btn {
+  padding: 0.4rem 0.8rem;
+  border: none;
+  border-radius: 4px;
+  cursor: pointer;
+  font-size: 0.85rem;
+  margin: 0 0.2rem;
+  transition: all 0.3s ease;
+}
+
+.status-btn-available {
+  background-color: #ff9800;
+  color: white;
+}
+
+.status-btn-available:hover {
+  background-color: #f57c00;
+}
+
+.status-btn-full {
+  background-color: #ff9800;
+  color: white;
+}
+
+.status-btn-full:hover {
+  background-color: #f57c00;
+}
+
+.status-btn-maintenance {
+  background-color: #4caf50;
+  color: white;
+}
+
+.status-btn-maintenance:hover {
+  background-color: #388e3c;
+}
+
+/* 房间状态标签样式 */
+.status-available {
+  color: #4caf50;
+  font-weight: bold;
+}
+
+.status-full {
+  color: #f44336;
+  font-weight: bold;
+}
+
+.status-maintenance {
+  color: #ff9800;
+  font-weight: bold;
+}
+
+.buildings-table tbody tr:hover {
+  background-color: #f8f9fa;
+}
+
+.buildings-table tbody tr:last-child td {
+  border-bottom: none;
+}
+
+.actions-cell {
+  white-space: nowrap;
+}
+
+.actions-cell .edit-btn,
+.actions-cell .delete-btn {
+  margin-right: 8px;
+  padding: 6px 12px;
+  font-size: 12px;
+  border-radius: 4px;
+  border: none;
+  cursor: pointer;
+}
+
+.edit-btn {
+  background-color: #FF9800;
+  color: white;
+}
+
+.edit-btn:hover {
+  background-color: #F57C00;
+}
+
+.delete-btn {
+  background-color: #f44336;
+  color: white;
+}
+
+.delete-btn:hover {
+  background-color: #d32f2f;
+}
+
+/* 提示信息样式 */
+.info-tip {
+  background-color: #e3f2fd;
+  border: 1px solid #2196f3;
+  border-radius: 4px;
+  padding: 12px;
+  margin-bottom: 20px;
+}
+
+.info-tip p {
+  margin: 0;
+  color: #1976d2;
+  font-size: 14px;
+  line-height: 1.4;
+}
+
 </style>

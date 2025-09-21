@@ -43,6 +43,15 @@
           </div>
           <div 
             class="tab-item" 
+            :class="{ 'active': activeTab === 'dormitory' }"
+            @click="activeTab = 'dormitory'"
+          >
+            <i class="icon">🏠</i>
+            <span>宿舍选择</span>
+            <span v-if="!dormitoryInfo.hasAllocation" class="badge">!</span>
+          </div>
+          <div 
+            class="tab-item" 
             :class="{ 'active': activeTab === 'grades' }"
             @click="activeTab = 'grades'"
           >
@@ -142,6 +151,10 @@
                 <span>{{ studentInfo.age || '未填写' }}</span>
               </div>
               <div class="info-item">
+                <label>性别:</label>
+                <span>{{ studentInfo.gender === 'male' ? '男' : studentInfo.gender === 'female' ? '女' : '未填写' }}</span>
+              </div>
+              <div class="info-item">
                 <label>信息状态:</label>
                 <span :class="studentInfo.infoCompleted ? 'status-completed' : 'status-incomplete'">
                   {{ studentInfo.infoCompleted ? '已完善' : '未完善' }}
@@ -158,6 +171,89 @@
           </div>
           <div class="placeholder-content">
             <p>课程管理功能正在开发中...</p>
+          </div>
+        </div>
+
+        <!-- 宿舍选择页面 -->
+        <div v-if="activeTab === 'dormitory'" class="tab-content">
+          <div class="page-header">
+            <h2>宿舍选择</h2>
+          </div>
+          
+          <!-- 当前宿舍信息 -->
+          <div v-if="dormitoryInfo.hasAllocation" class="current-dormitory">
+            <h3>当前宿舍信息</h3>
+            <div class="dormitory-card current">
+              <div class="dormitory-info">
+                <h4>宿舍楼名称：{{ dormitoryInfo.buildingName }}</h4>
+                <p>房间号：{{ dormitoryInfo.roomNumber }}</p>
+                <p>床位号：{{ dormitoryInfo.bedNumber || '未分配' }}</p>
+                <p>分配状态：{{ getStatusText(dormitoryInfo.status) }}</p>
+              </div>
+              <div class="dormitory-actions">
+                <button v-if="dormitoryInfo.status === 'selected'" 
+                        @click="confirmCheckIn" 
+                        class="btn btn-primary">
+                  确认入住
+                </button>
+                <button @click="checkOut" 
+                        :disabled="dormitoryInfo.status === 'confirmed'"
+                        class="btn btn-danger"
+                        :class="{ 'btn-disabled': dormitoryInfo.status === 'confirmed' }">
+                  退宿
+                </button>
+              </div>
+            </div>
+          </div>
+
+          <!-- 宿舍选择 -->
+          <div v-else class="dormitory-selection">
+            <h3>选择宿舍</h3>
+            
+            <!-- 宿舍楼选择 -->
+            <div class="building-selection">
+              <h4>选择宿舍楼</h4>
+              <div class="building-grid">
+                <div v-for="building in availableBuildings" 
+                     :key="building.buildingId"
+                     class="building-card"
+                     :class="{ 'selected': selectedBuilding?.buildingId === building.buildingId }"
+                     @click="selectBuilding(building)">
+                  <h5>{{ building.buildingName }}</h5>
+                  <p>类型：{{ building.buildingType }}</p>
+                  <p>可用房间：{{ building.availableRooms }}间</p>
+                </div>
+              </div>
+            </div>
+
+            <!-- 房间选择 -->
+            <div v-if="selectedBuilding" class="room-selection">
+              <h4>选择房间</h4>
+              <div class="room-grid">
+                <div v-for="room in availableRooms" 
+                     :key="room.roomId"
+                     class="room-card"
+                     :class="{ 'selected': selectedRoom?.roomId === room.roomId }"
+                     @click="selectRoom(room)">
+                  <h5>{{ room.roomNumber }}</h5>
+                  <p>类型：{{ room.roomType }}</p>
+                  <p>已入住：{{ room.currentOccupancy }}/{{ room.capacity }}人</p>
+                  <p>床位费：¥{{ room.bedFee }}/学期</p>
+                </div>
+              </div>
+            </div>
+
+            <!-- 确认选择 -->
+            <div v-if="selectedRoom" class="selection-confirm">
+              <div class="selection-summary">
+                <h4>选择确认</h4>
+                <p>宿舍楼：{{ selectedBuilding.buildingName }}</p>
+                <p>房间号：{{ selectedRoom.roomNumber }}</p>
+                <p>房间类型：{{ selectedRoom.roomType }}</p>
+                <p>床位费：¥{{ selectedRoom.bedFee }}/学期</p>
+              </div>
+              <button @click="confirmSelection" class="btn btn-primary">确认选择</button>
+            </div>
           </div>
         </div>
 
@@ -267,6 +363,10 @@
             <label>年龄:</label>
             <span>{{ studentInfo.age }}</span>
           </div>
+          <div class="form-group">
+            <label>性别:</label>
+            <span>{{ studentInfo.gender === 'male' ? '男' : studentInfo.gender === 'female' ? '女' : '未填写' }}</span>
+          </div>
           <p class="info-notice">信息已完善，无法再次修改</p>
         </div>
 
@@ -294,6 +394,14 @@
           <div class="form-group">
             <label>年龄: <span class="required">*</span></label>
             <input v-model="editingInfo.age" type="number" placeholder="请输入年龄" min="1" max="150" required>
+          </div>
+          <div class="form-group">
+            <label>性别: <span class="required">*</span></label>
+            <select v-model="editingInfo.gender" required>
+              <option value="">请选择性别</option>
+              <option value="male">男</option>
+              <option value="female">女</option>
+            </select>
           </div>
           <div class="warning-notice">
             <p>⚠️ 重要提醒：个人信息只能修改一次，提交后将无法再次更改，请仔细核对后提交！</p>
@@ -329,6 +437,7 @@ export default {
         email: '',
         address: '',
         age: null,
+        gender: '',
         infoCompleted: false,
         modificationCount: 0
       },
@@ -338,8 +447,22 @@ export default {
         phone: '',
         email: '',
         address: '',
-        age: null
-      }
+        age: null,
+        gender: ''
+      },
+      // 宿舍相关数据
+      dormitoryInfo: {
+        hasAllocation: false,
+        buildingName: '',
+        roomNumber: '',
+        roomType: '',
+        checkInDate: '',
+        status: '' // 'selected', 'confirmed'
+      },
+      availableBuildings: [],
+      availableRooms: [],
+      selectedBuilding: null,
+      selectedRoom: null
     }
   },
   mounted() {
@@ -349,11 +472,45 @@ export default {
       this.userInfo = JSON.parse(userInfo);
       // 加载学生详细信息
       this.loadStudentInfo();
+      // 初始加载宿舍信息（不加载可用宿舍楼，等用户点击宿舍选择时再加载）
+      this.loadDormitoryInfo();
     }
   },
   methods: {
     setActiveTab(tab) {
+      // 如果切换到宿舍选择页面，先检查是否已有分配
+      if (tab === 'dormitory') {
+        this.checkDormitoryAllocation();
+      }
       this.activeTab = tab;
+    },
+    
+    async checkDormitoryAllocation() {
+      try {
+        const response = await axios.get(`/api/dormitory/student/${this.userInfo.userId}`);
+        if (response.data.success && response.data.data) {
+          // 已有宿舍分配，更新宿舍信息
+          this.dormitoryInfo = {
+            hasAllocation: true,
+            buildingName: response.data.data.buildingName,
+            roomNumber: response.data.data.roomNumber,
+            bedNumber: response.data.data.bedNumber,
+            roomType: response.data.data.roomType,
+            checkInDate: response.data.data.checkInDate,
+            status: response.data.data.allocationStatus
+          };
+        } else {
+          // 没有宿舍分配，显示选择界面
+          this.dormitoryInfo.hasAllocation = false;
+          // 加载可用宿舍楼
+          this.loadAvailableBuildings();
+        }
+      } catch (error) {
+        console.error('检查宿舍分配失败:', error);
+        // 出错时默认显示选择界面
+        this.dormitoryInfo.hasAllocation = false;
+        this.loadAvailableBuildings();
+      }
     },
     async loadStudentInfo() {
       try {
@@ -367,7 +524,8 @@ export default {
             phone: this.studentInfo.phone || '',
             email: this.studentInfo.email || '',
             address: this.studentInfo.address || '',
-            age: this.studentInfo.age || null
+            age: this.studentInfo.age || null,
+            gender: this.studentInfo.gender || ''
           };
         } else {
           console.error('加载学生信息失败:', response.data.message);
@@ -405,6 +563,143 @@ export default {
       localStorage.removeItem('userInfo');
       // 跳转到登录页面
       this.$router.push('/');
+    },
+    
+    // 宿舍相关方法
+    async loadDormitoryInfo() {
+      try {
+        const response = await axios.get(`/api/dormitory/student/${this.userInfo.userId}`);
+        if (response.data.success && response.data.data) {
+          this.dormitoryInfo = {
+            hasAllocation: true,
+            buildingName: response.data.data.buildingName,
+            roomNumber: response.data.data.roomNumber,
+            bedNumber: response.data.data.bedNumber,
+            roomType: response.data.data.roomType,
+            checkInDate: response.data.data.checkInDate,
+            status: response.data.data.allocationStatus
+          };
+        }
+      } catch (error) {
+        console.error('加载宿舍信息失败:', error);
+      }
+    },
+    
+    async loadAvailableBuildings() {
+      try {
+        // 获取学生性别信息
+        const studentResponse = await axios.get(`/api/students/${this.userInfo.userId}`);
+        if (studentResponse.data.success) {
+          const gender = studentResponse.data.data.gender || '男'; // 默认男性
+          const response = await axios.get(`/api/dormitory/buildings/gender/${gender}`);
+          if (response.data.success) {
+            this.availableBuildings = response.data.data;
+          }
+        }
+      } catch (error) {
+        console.error('加载宿舍楼信息失败:', error);
+      }
+    },
+    
+    async selectBuilding(building) {
+      this.selectedBuilding = building;
+      this.selectedRoom = null;
+      this.availableRooms = [];
+      
+      try {
+        const response = await axios.get(`/api/dormitory/rooms/available/${building.buildingId}`);
+        if (response.data.success) {
+          this.availableRooms = response.data.data;
+        }
+      } catch (error) {
+        console.error('加载房间信息失败:', error);
+        alert('加载房间信息失败');
+      }
+    },
+    
+    selectRoom(room) {
+      this.selectedRoom = room;
+    },
+    
+    async confirmSelection() {
+      if (!this.selectedRoom) {
+        alert('请选择房间');
+        return;
+      }
+      
+      try {
+        const response = await axios.post('/api/dormitory/select', {
+          studentId: this.userInfo.userId,
+          roomId: this.selectedRoom.roomId
+        });
+        
+        if (response.data.success) {
+          alert('宿舍选择成功！');
+          this.checkDormitoryAllocation(); // 重新检查宿舍分配状态
+          this.selectedBuilding = null;
+          this.selectedRoom = null;
+          this.availableRooms = [];
+        } else {
+          alert(response.data.message || '选择失败');
+        }
+      } catch (error) {
+        console.error('选择宿舍失败:', error);
+        alert('选择宿舍失败，请重试');
+      }
+    },
+    
+    async confirmCheckIn() {
+      try {
+        const response = await axios.post('/api/dormitory/checkin', {
+          studentId: this.userInfo.userId
+        });
+        
+        if (response.data.success) {
+          alert('确认入住成功！');
+          this.checkDormitoryAllocation(); // 重新检查宿舍分配状态
+        } else {
+          alert(response.data.message || '确认入住失败');
+        }
+      } catch (error) {
+        console.error('确认入住失败:', error);
+        alert('确认入住失败，请重试');
+      }
+    },
+    
+    async checkOut() {
+      if (!confirm('确定要退宿吗？此操作不可撤销。')) {
+        return;
+      }
+      
+      try {
+        const response = await axios.post('/api/dormitory/checkout', {
+          studentId: this.userInfo.userId
+        });
+        
+        if (response.data.success) {
+          alert('退宿成功！');
+          this.checkDormitoryAllocation(); // 重新检查宿舍分配状态
+        } else {
+          alert(response.data.message || '退宿失败');
+        }
+      } catch (error) {
+        console.error('退宿失败:', error);
+        alert('退宿失败，请重试');
+      }
+    },
+    
+    // 格式化状态文本
+    getStatusText(status) {
+      switch(status) {
+        case 'selected':
+          return '已选择，待确认入住';
+        case 'confirmed':
+          return '已确认入住';
+        case 'checked_in':
+          return '已入住';
+        default:
+          return '未知状态';
+      }
     }
   }
 }
@@ -999,5 +1294,147 @@ export default {
 
 .submit-btn:hover {
   background-color: #45a049;
+}
+
+/* 宿舍选择相关样式 */
+.current-dormitory {
+  margin-bottom: 2rem;
+}
+
+.dormitory-card {
+  background-color: white;
+  border-radius: 8px;
+  padding: 1.5rem;
+  box-shadow: 0 2px 4px rgba(0,0,0,0.1);
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+}
+
+.dormitory-card.current {
+  border-left: 4px solid #4CAF50;
+}
+
+.dormitory-info h4 {
+  color: #333;
+  margin-bottom: 0.5rem;
+}
+
+.dormitory-info p {
+  margin: 0.25rem 0;
+  color: #666;
+}
+
+.dormitory-actions {
+  display: flex;
+  gap: 1rem;
+}
+
+.building-selection, .room-selection {
+  margin-bottom: 2rem;
+}
+
+.building-selection h4, .room-selection h4 {
+  color: #333;
+  margin-bottom: 1rem;
+}
+
+.building-grid, .room-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(280px, 1fr));
+  gap: 1rem;
+}
+
+.building-card, .room-card {
+  background-color: white;
+  border: 2px solid #e0e0e0;
+  border-radius: 8px;
+  padding: 1.5rem;
+  cursor: pointer;
+  transition: all 0.3s ease;
+}
+
+.building-card:hover, .room-card:hover {
+  border-color: #4CAF50;
+  transform: translateY(-2px);
+  box-shadow: 0 4px 8px rgba(0,0,0,0.15);
+}
+
+.building-card.selected, .room-card.selected {
+  border-color: #4CAF50;
+  background-color: #f8fff8;
+}
+
+.building-card h5, .room-card h5 {
+  color: #333;
+  margin-bottom: 0.5rem;
+  font-size: 1.1rem;
+}
+
+.building-card p, .room-card p {
+  margin: 0.25rem 0;
+  color: #666;
+  font-size: 0.9rem;
+}
+
+.selection-confirm {
+  background-color: white;
+  border-radius: 8px;
+  padding: 1.5rem;
+  box-shadow: 0 2px 4px rgba(0,0,0,0.1);
+  margin-top: 2rem;
+}
+
+.selection-summary {
+  margin-bottom: 1.5rem;
+}
+
+.selection-summary h4 {
+  color: #333;
+  margin-bottom: 1rem;
+}
+
+.selection-summary p {
+  margin: 0.5rem 0;
+  color: #666;
+}
+
+.btn {
+  padding: 0.75rem 1.5rem;
+  border: none;
+  border-radius: 4px;
+  cursor: pointer;
+  font-size: 1rem;
+  transition: background-color 0.2s;
+}
+
+.btn-primary {
+  background-color: #4CAF50;
+  color: white;
+}
+
+.btn-primary:hover {
+  background-color: #45a049;
+}
+
+.btn-danger {
+  background-color: #f44336;
+  color: white;
+}
+
+.btn-danger:hover:not(:disabled) {
+  background-color: #d32f2f;
+}
+
+.btn-disabled,
+.btn:disabled {
+  background-color: #cccccc !important;
+  color: #666666 !important;
+  cursor: not-allowed !important;
+  opacity: 0.6;
+}
+
+.btn:disabled:hover {
+  background-color: #cccccc !important;
 }
 </style>
