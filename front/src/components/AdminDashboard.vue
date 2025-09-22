@@ -3,9 +3,9 @@
     <!-- 用户信息头部 -->
     <div class="header">
       <h1>管理员控制台</h1>
-      <div class="user-info" @mouseenter="showLogout = true" @mouseleave="showLogout = false">
+      <div class="user-info" @mouseenter="showLogout = true" @mouseleave="hideLogoutWithDelay">
         <span class="user-tag">{{ userInfo.userId }} ({{ userInfo.userType }})</span>
-        <div v-if="showLogout" class="logout-btn" @click="logout">
+        <div v-if="showLogout" class="logout-btn" @click="logout" @mouseenter="clearHideTimeout" @mouseleave="hideLogoutWithDelay">
           退出登录
         </div>
       </div>
@@ -87,6 +87,14 @@
           >
             <i class="icon">💾</i>
             <span>备份恢复</span>
+          </div>
+          <div 
+            class="tab-item" 
+            :class="{ 'active': activeTab === 'notices' }"
+            @click="activeTab = 'notices'"
+          >
+            <i class="icon">📢</i>
+            <span>通知管理</span>
           </div>
         </div>
       </div>
@@ -437,6 +445,73 @@
           </div>
           <div class="placeholder-content">
             <p>备份恢复功能正在开发中...</p>
+          </div>
+        </div>
+
+        <!-- 通知管理页面 -->
+        <div v-if="activeTab === 'notices'" class="tab-content">
+          <div class="page-header">
+            <h2>通知管理</h2>
+            <button class="add-btn" @click="showNoticeModal = true">发布通知</button>
+          </div>
+
+          <!-- 通知状态筛选 -->
+          <div class="notice-filters">
+            <select v-model="noticeStatusFilter" @change="filterNotices">
+              <option value="">全部状态</option>
+              <option value="1">已发布</option>
+              <option value="0">草稿</option>
+            </select>
+            <select v-model="noticeTypeFilter" @change="filterNotices">
+              <option value="">全部类型</option>
+              <option value="general">一般通知</option>
+              <option value="dormitory">宿舍通知</option>
+              <option value="academic">学术通知</option>
+              <option value="activity">活动通知</option>
+              <option value="emergency">紧急通知</option>
+            </select>
+          </div>
+
+          <!-- 通知列表 -->
+          <div class="notice-list">
+            <div class="notice-table">
+              <table>
+                <thead>
+                  <tr>
+                    <th>标题</th>
+                    <th>类型</th>
+                    <th>状态</th>
+                    <th>发布时间</th>
+                    <th>查看次数</th>
+                    <th>操作</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  <tr v-for="notice in filteredNotices" :key="notice.id">
+                    <td>{{ notice.title }}</td>
+                    <td>
+                      <span class="notice-type" :class="notice.type">
+                        {{ getNoticeTypeText(notice.type) }}
+                      </span>
+                    </td>
+                    <td>
+                      <span class="notice-status" :class="notice.status === 1 ? 'published' : 'draft'">
+                        {{ notice.status === 1 ? '已发布' : '草稿' }}
+                      </span>
+                    </td>
+                    <td>{{ formatDate(notice.publishTime) }}</td>
+                    <td>{{ notice.viewCount || 0 }}</td>
+                    <td>
+                      <button class="btn-small" @click="viewNotice(notice)">查看</button>
+                      <button class="btn-small edit" @click="editNotice(notice)">编辑</button>
+                      <button v-if="notice.status === 0" class="btn-small publish" @click="publishNotice(notice.id)">发布</button>
+                      <button v-if="notice.status === 1" class="btn-small unpublish" @click="unpublishNotice(notice.id)">撤回</button>
+                      <button class="btn-small delete" @click="deleteNotice(notice.id)">删除</button>
+                    </td>
+                  </tr>
+                </tbody>
+              </table>
+            </div>
           </div>
         </div>
       </div>
@@ -885,6 +960,43 @@
     </div>
   </div>
 
+  <!-- 通知详情查看模态框 -->
+  <div v-if="showViewNoticeModal" class="modal-overlay" @click="closeViewNoticeModal">
+    <div class="modal notice-view-modal" @click.stop>
+      <div class="modal-header">
+        <h3>{{ viewingNotice.title }}</h3>
+        <button class="close-btn" @click="closeViewNoticeModal">×</button>
+      </div>
+      <div class="modal-body">
+        <div class="notice-meta">
+          <div class="meta-item">
+            <strong>类型：</strong>
+            <span class="notice-type" :class="viewingNotice.type">
+              {{ getNoticeTypeText(viewingNotice.type) }}
+            </span>
+          </div>
+          <div class="meta-item">
+            <strong>状态：</strong>
+            <span class="notice-status" :class="viewingNotice.isPublished === 1 ? 'published' : 'draft'">
+              {{ viewingNotice.isPublished === 1 ? '已发布' : '草稿' }}
+            </span>
+          </div>
+          <div class="meta-item">
+            <strong>发布时间：</strong>{{ formatDate(viewingNotice.publishTime) }}
+          </div>
+          <div class="meta-item">
+            <strong>查看次数：</strong>{{ viewingNotice.viewCount || 0 }}
+          </div>
+        </div>
+        
+        <div class="notice-content">
+          <h4>通知内容：</h4>
+          <div class="content-text">{{ viewingNotice.content }}</div>
+        </div>
+      </div>
+    </div>
+  </div>
+
 </template>
 
 <script>
@@ -895,6 +1007,7 @@ export default {
   data() {
     return {
       showLogout: false,
+      hideTimeout: null, // 添加延迟隐藏的定时器
       activeTab: 'dashboard', // 当前激活的标签页
       dormitorySubTab: 'buildings', // 宿舍管理子标签页
       showAddModal: false,
@@ -996,7 +1109,25 @@ export default {
       // 房间筛选相关属性
       selectedBuildingFilter: '',
       roomStatusFilter: '',
-      filteredRooms: []
+      filteredRooms: [],
+      // 通知管理相关数据
+      notices: [],
+      filteredNotices: [],
+      noticeStatusFilter: '',
+      noticeTypeFilter: '',
+      showNoticeModal: false,
+      showViewNoticeModal: false,
+      isEditMode: false,
+      viewingNotice: {},
+      noticeForm: {
+        id: null,
+        title: '',
+        content: '',
+        type: 'general',
+        isPublished: 0,
+        publishTime: null,
+        viewCount: 0
+      }
     }
   },
   mounted() {
@@ -1013,6 +1144,8 @@ export default {
     this.loadBuildings();
     this.loadRooms();
     this.loadAssignments();
+    // 加载通知列表
+    this.loadNotices();
   },
   methods: {
     logout() {
@@ -1020,6 +1153,21 @@ export default {
       localStorage.removeItem('userInfo');
       // 跳转到登录页面
       this.$router.push('/');
+    },
+    
+    // 延迟隐藏退出登录按钮
+    hideLogoutWithDelay() {
+      this.hideTimeout = setTimeout(() => {
+        this.showLogout = false;
+      }, 300); // 300ms延迟
+    },
+    
+    // 清除隐藏定时器
+    clearHideTimeout() {
+      if (this.hideTimeout) {
+        clearTimeout(this.hideTimeout);
+        this.hideTimeout = null;
+      }
     },
     async loadStudents() {
       try {
@@ -1676,6 +1824,174 @@ export default {
         'checked_out': '已退宿'
       };
       return statusMap[status] || status;
+    },
+
+    // 通知管理方法
+    async loadNotices() {
+      try {
+        // 获取当前登录用户信息
+        const userInfo = JSON.parse(localStorage.getItem('userInfo') || '{}');
+        const user = JSON.parse(localStorage.getItem('user') || '{}');
+        
+        // 使用search API按publisherId筛选通知，管理员使用adminId
+        const publisherId = user.adminId || userInfo.userId;
+        
+        const response = await axios.get('/api/notices/search', {
+          params: {
+            publisherId: publisherId
+          }
+        });
+        
+        if (response.data.success) {
+          this.notices = response.data.data || [];
+          this.filteredNotices = [...this.notices];
+        } else {
+          console.error('获取通知列表失败:', response.data.message);
+          this.loadMockNotices();
+        }
+      } catch (error) {
+        console.error('加载通知列表出错:', error);
+        this.loadMockNotices();
+      }
+    },
+
+    loadMockNotices() {
+      // 模拟通知数据
+      this.notices = [
+        {
+          id: 1,
+          title: '宿舍卫生检查通知',
+          content: '本周将进行宿舍卫生检查，请各位同学做好准备。',
+          type: 'dormitory',
+          isPublished: 1,
+          publishTime: '2024-01-15 10:00:00',
+          viewCount: 156
+        },
+        {
+          id: 2,
+          title: '期末考试安排',
+          content: '期末考试将于下月开始，请同学们合理安排复习时间。',
+          type: 'academic',
+          isPublished: 1,
+          publishTime: '2024-01-14 14:30:00',
+          viewCount: 89
+        },
+        {
+          id: 3,
+          title: '新学期活动预告',
+          content: '新学期将举办多项精彩活动，敬请期待。',
+          type: 'activity',
+          isPublished: 0,
+          publishTime: null,
+          viewCount: 0
+        }
+      ];
+      this.filteredNotices = [...this.notices];
+    },
+
+    filterNotices() {
+      this.filteredNotices = this.notices.filter(notice => {
+        const statusMatch = !this.noticeStatusFilter || notice.status.toString() === this.noticeStatusFilter;
+        const typeMatch = !this.noticeTypeFilter || notice.type === this.noticeTypeFilter;
+        return statusMatch && typeMatch;
+      });
+    },
+
+    viewNotice(notice) {
+      this.viewingNotice = notice;
+      this.showViewNoticeModal = true;
+    },
+
+    editNotice(notice) {
+      this.noticeForm = { ...notice };
+      this.isEditMode = true;
+      this.showNoticeModal = true;
+    },
+
+    async publishNotice(noticeId) {
+      try {
+        const response = await axios.put(`/api/notices/${noticeId}/status`, {
+          status: 1
+        });
+        if (response.data.success) {
+          const notice = this.notices.find(n => n.id === noticeId);
+          if (notice) {
+            notice.status = 1;
+            notice.publishTime = new Date().toISOString().slice(0, 19).replace('T', ' ');
+          }
+          this.filterNotices();
+          alert('通知发布成功');
+        } else {
+          alert('发布失败: ' + response.data.message);
+        }
+      } catch (error) {
+        console.error('发布通知失败:', error);
+        alert('发布通知失败，请稍后重试');
+      }
+    },
+
+    async unpublishNotice(noticeId) {
+      if (!confirm('确定要撤回这条通知吗？')) {
+        return;
+      }
+      try {
+        const response = await axios.put(`/api/notices/${noticeId}/status`, {
+          status: 0
+        });
+        if (response.data.success) {
+          const notice = this.notices.find(n => n.id === noticeId);
+          if (notice) {
+            notice.status = 0;
+          }
+          this.filterNotices();
+          alert('通知撤回成功');
+        } else {
+          alert('撤回失败: ' + response.data.message);
+        }
+      } catch (error) {
+        console.error('撤回通知失败:', error);
+        alert('撤回通知失败，请稍后重试');
+      }
+    },
+
+    async deleteNotice(noticeId) {
+      if (!confirm('确定要删除这条通知吗？')) {
+        return;
+      }
+      try {
+        const response = await axios.delete(`/api/notices/${noticeId}`);
+        if (response.data.success) {
+          this.notices = this.notices.filter(notice => notice.id !== noticeId);
+          this.filterNotices();
+          alert('通知删除成功');
+        } else {
+          alert('删除失败: ' + response.data.message);
+        }
+      } catch (error) {
+        console.error('删除通知失败:', error);
+        alert('删除通知失败，请稍后重试');
+      }
+    },
+
+    getNoticeTypeText(type) {
+      const typeMap = {
+        general: '一般通知',
+        dormitory: '宿舍通知',
+        academic: '学术通知',
+        activity: '活动通知',
+        emergency: '紧急通知'
+      };
+      return typeMap[type] || type;
+    },
+
+    formatDate(dateString) {
+      if (!dateString) return '未发布';
+      return new Date(dateString).toLocaleString('zh-CN');
+    },
+
+    closeViewNoticeModal() {
+      this.showViewNoticeModal = false;
+      this.viewingNotice = {};
     }
   }
 }
@@ -1726,10 +2042,14 @@ export default {
   white-space: nowrap;
   box-shadow: 0 2px 8px rgba(0,0,0,0.2);
   z-index: 1000;
+  cursor: pointer;
+  user-select: none;
+  transition: all 0.2s ease;
 }
 
 .logout-btn:hover {
   background-color: #d32f2f;
+  transform: translateY(-1px);
 }
 
 .content {
@@ -2410,6 +2730,189 @@ export default {
   color: #1976d2;
   font-size: 14px;
   line-height: 1.4;
+}
+
+/* 通知管理样式 */
+.notice-filters {
+  display: flex;
+  gap: 1rem;
+  margin-bottom: 1rem;
+  padding: 1rem;
+  background-color: #f8f9fa;
+  border-radius: 8px;
+}
+
+.notice-filters select {
+  padding: 0.5rem;
+  border: 1px solid #ddd;
+  border-radius: 4px;
+  font-size: 0.9rem;
+}
+
+.notice-list {
+  background-color: white;
+  border-radius: 8px;
+  box-shadow: 0 2px 4px rgba(0,0,0,0.1);
+  overflow: hidden;
+}
+
+.notice-table {
+  width: 100%;
+}
+
+.notice-table table {
+  width: 100%;
+  border-collapse: collapse;
+}
+
+.notice-table th,
+.notice-table td {
+  padding: 12px;
+  text-align: left;
+  border-bottom: 1px solid #dee2e6;
+}
+
+.notice-table th {
+  background-color: #f8f9fa;
+  font-weight: 600;
+  color: #495057;
+}
+
+.notice-table tr:hover {
+  background-color: #f8f9fa;
+}
+
+.notice-type {
+  padding: 0.25rem 0.5rem;
+  border-radius: 12px;
+  font-size: 0.8rem;
+  font-weight: 500;
+}
+
+.notice-type.general {
+  background-color: #e3f2fd;
+  color: #1976d2;
+}
+
+.notice-type.dormitory {
+  background-color: #f3e5f5;
+  color: #7b1fa2;
+}
+
+.notice-type.academic {
+  background-color: #e8f5e8;
+  color: #388e3c;
+}
+
+.notice-type.activity {
+  background-color: #fff3e0;
+  color: #f57c00;
+}
+
+.notice-type.emergency {
+  background-color: #ffebee;
+  color: #d32f2f;
+}
+
+.notice-status {
+  padding: 0.25rem 0.5rem;
+  border-radius: 12px;
+  font-size: 0.8rem;
+  font-weight: 500;
+}
+
+.notice-status.published {
+  background-color: #e8f5e8;
+  color: #388e3c;
+}
+
+.notice-status.draft {
+  background-color: #fff3e0;
+  color: #f57c00;
+}
+
+.btn-small {
+  padding: 0.25rem 0.5rem;
+  margin: 0 0.2rem;
+  border: none;
+  border-radius: 4px;
+  cursor: pointer;
+  font-size: 0.8rem;
+  transition: all 0.3s ease;
+}
+
+.btn-small:hover {
+  transform: translateY(-1px);
+}
+
+.btn-small.edit {
+  background-color: #ff9800;
+  color: white;
+}
+
+.btn-small.edit:hover {
+  background-color: #f57c00;
+}
+
+.btn-small.publish {
+  background-color: #4caf50;
+  color: white;
+}
+
+.btn-small.publish:hover {
+  background-color: #388e3c;
+}
+
+.btn-small.unpublish {
+  background-color: #ff9800;
+  color: white;
+}
+
+.btn-small.unpublish:hover {
+  background-color: #f57c00;
+}
+
+.btn-small.delete {
+  background-color: #f44336;
+  color: white;
+}
+
+.btn-small.delete:hover {
+  background-color: #d32f2f;
+}
+
+/* 通知详情模态框样式 */
+.notice-view-modal {
+  max-width: 600px;
+}
+
+.notice-meta {
+  margin-bottom: 1.5rem;
+}
+
+.meta-item {
+  margin-bottom: 0.5rem;
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+}
+
+.notice-content {
+  border-top: 1px solid #dee2e6;
+  padding-top: 1rem;
+}
+
+.notice-content h4 {
+  margin-bottom: 0.5rem;
+  color: #495057;
+}
+
+.content-text {
+  background-color: #f8f9fa;
+  padding: 1rem;
+  border-radius: 4px;
+  line-height: 1.6;
+  white-space: pre-wrap;
 }
 
 </style>

@@ -3,10 +3,35 @@
     <!-- 用户信息头部 -->
     <div class="header">
       <h1>学生管理系统</h1>
-      <div class="user-info" @mouseenter="showLogout = true" @mouseleave="showLogout = false">
+      <div class="user-info" @mouseenter="showLogout = true" @mouseleave="hideLogoutWithDelay">
         <span class="user-tag">{{ userInfo.userId }} ({{ userInfo.userType }})</span>
-        <div v-if="showLogout" class="logout-btn" @click="logout">
+        <div class="notification-icon" @click="showNoticeModal = true">
+          <i class="icon">🔔</i>
+          <span class="badge" v-if="unreadNotices.length > 0">{{ unreadNotices.length }}</span>
+        </div>
+        <div v-if="showLogout" class="logout-btn" @click="logout" @mouseenter="clearHideTimeout" @mouseleave="hideLogoutWithDelay">
           退出登录
+        </div>
+      </div>
+    </div>
+    
+    <!-- 通知弹窗 -->
+    <div class="notice-modal" v-if="showNoticeModal">
+      <div class="notice-content">
+        <div class="notice-header">
+          <h3>未读通知 ({{ unreadNotices.length }})</h3>
+          <span class="close-btn" @click="showNoticeModal = false">×</span>
+        </div>
+        <div class="notice-list">
+          <div v-if="unreadNotices.length === 0" class="no-notice">
+            暂无未读通知
+          </div>
+          <div v-else v-for="(notice, index) in unreadNotices" :key="index" class="notice-item">
+            <div class="notice-title">{{ notice.title }}</div>
+            <div class="notice-message">{{ notice.content }}</div>
+            <div class="notice-time">{{ formatDate(notice.createTime) }}</div>
+            <button class="mark-read-btn" @click="markAsRead(notice.id)">标记为已读</button>
+          </div>
         </div>
       </div>
     </div>
@@ -424,7 +449,9 @@ export default {
   data() {
     return {
       showLogout: false,
+      hideTimeout: null, // 添加延迟隐藏的定时器
       showInfoModal: false,
+      showNoticeModal: false, // 通知弹窗显示状态
       activeTab: 'dashboard', // 当前激活的标签页
       userInfo: {
         userId: '',
@@ -450,6 +477,9 @@ export default {
         age: null,
         gender: ''
       },
+      // 通知相关数据
+      unreadNotices: [],
+      currentNotice: null,
       // 宿舍相关数据
       dormitoryInfo: {
         hasAllocation: false,
@@ -474,11 +504,174 @@ export default {
       this.loadStudentInfo();
       // 初始加载宿舍信息（不加载可用宿舍楼，等用户点击宿舍选择时再加载）
       this.loadDormitoryInfo();
+      // 加载未读通知
+      this.fetchUnreadNotices();
     }
   },
   methods: {
+    // 获取未读通知
+    fetchUnreadNotices() {
+      const studentId = this.userInfo.userId;
+      console.log('正在获取学生未读通知，学生ID:', studentId);
+      
+      fetch(`http://localhost:8080/api/notices/unread/${studentId}`)
+        .then(response => {
+          if (!response.ok) {
+            throw new Error('获取未读通知失败');
+          }
+          return response.json();
+        })
+        .then(data => {
+          console.log('获取到未读通知:', data);
+          // 处理后端返回的数据结构
+          if (data.success && Array.isArray(data.data)) {
+            this.unreadNotices = data.data.map(notice => ({
+              id: notice.id, // 直接使用后端返回的id
+              title: notice.title,
+              content: notice.content,
+              createTime: notice.publishTime || notice.createdAt,
+              priority: notice.priority,
+              targetAudience: notice.targetAudience
+            }));
+          } else if (Array.isArray(data)) {
+            // 如果直接返回数组
+            this.unreadNotices = data.map(notice => ({
+              id: notice.id, // 直接使用后端返回的id
+              title: notice.title,
+              content: notice.content,
+              createTime: notice.publishTime || notice.createdAt,
+              priority: notice.priority,
+              targetAudience: notice.targetAudience
+            }));
+          } else {
+            this.unreadNotices = [];
+          }
+          
+          console.log('处理后的未读通知:', this.unreadNotices);
+          
+          // 不自动显示通知弹窗，让用户主动点击图标查看
+          // if (this.unreadNotices.length > 0) {
+          //   this.showNoticeModal = true;
+          // }
+        })
+        .catch(error => {
+          console.error('获取未读通知出错:', error);
+          // 如果API不存在，尝试获取所有通知
+          this.fetchAllNotices();
+        });
+    },
+    
+    // 获取所有通知（备用方案）
+    fetchAllNotices() {
+      console.log('尝试获取所有通知');
+      fetch('/api/notices')
+        .then(response => {
+          if (!response.ok) {
+            throw new Error('获取通知失败');
+          }
+          return response.json();
+        })
+        .then(data => {
+          console.log('获取到所有通知:', data);
+          // 过滤出当前学生的未读通知
+          const studentId = this.userInfo.userId;
+          this.unreadNotices = data.filter(notice => 
+            !notice.readRecords || !notice.readRecords.some(record => 
+              record.studentId === studentId && record.read === true
+            )
+          );
+          
+          // 不自动显示通知弹窗，让用户主动点击图标查看
+          // if (this.unreadNotices.length > 0) {
+          //   this.showNoticeModal = true;
+          // }
+        })
+        .catch(error => {
+          console.error('获取所有通知出错:', error);
+          // 创建测试通知（仅用于演示）
+          this.createTestNotices();
+        });
+    },
+    
+    // 创建测试通知（仅用于演示）
+    createTestNotices() {
+      console.log('创建测试通知');
+      this.unreadNotices = [
+        {
+          id: 'test-1',
+          title: '欢迎使用学生管理系统',
+          content: '这是一条测试通知，用于演示通知功能。',
+          createTime: new Date().toISOString()
+        },
+        {
+          id: 'test-2',
+          title: '请完善个人信息',
+          content: '请尽快完善您的个人信息，以便系统为您提供更好的服务。',
+          createTime: new Date().toISOString()
+        }
+      ];
+      
+      // 不自动显示通知弹窗，让用户主动点击图标查看
+      // this.showNoticeModal = true;
+    },
+      
+    // 格式化日期
+    formatDate(dateString) {
+      if (!dateString) return '';
+      const date = new Date(dateString);
+      return `${date.getFullYear()}-${String(date.getMonth() + 1).padStart(2, '0')}-${String(date.getDate()).padStart(2, '0')} ${String(date.getHours()).padStart(2, '0')}:${String(date.getMinutes()).padStart(2, '0')}`;
+    },
+    
+    // 标记通知为已读
+    markAsRead(noticeId) {
+      console.log('标记通知为已读:', noticeId);
+      const studentId = this.userInfo.userId;
+      
+      // 检查noticeId是否存在
+      if (!noticeId) {
+        console.error('通知ID不能为空');
+        return;
+      }
+      
+      fetch('http://localhost:8080/api/notices/read', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json'
+        },
+        body: JSON.stringify({
+          noticeId: noticeId,
+          studentId: studentId
+        })
+      })
+        .then(response => {
+          if (!response.ok) {
+            throw new Error('标记通知已读失败');
+          }
+          return response.json();
+        })
+        .then(data => {
+          console.log('标记通知已读成功:', data);
+          // 从未读通知列表中移除该通知
+          this.unreadNotices = this.unreadNotices.filter(notice => notice.id !== noticeId);
+          
+          // 如果没有未读通知了，关闭弹窗
+          if (this.unreadNotices.length === 0) {
+            this.showNoticeModal = false;
+          }
+        })
+        .catch(error => {
+          console.error('标记通知已读出错:', error);
+          // 如果API不存在，直接从列表中移除（仅用于演示）
+          this.unreadNotices = this.unreadNotices.filter(notice => notice.id !== noticeId);
+          
+          // 如果没有未读通知了，关闭弹窗
+          if (this.unreadNotices.length === 0) {
+            this.showNoticeModal = false;
+          }
+        });
+    },
+    
     setActiveTab(tab) {
-      // 如果切换到宿舍选择页面，先检查是否已有分配
       if (tab === 'dormitory') {
         this.checkDormitoryAllocation();
       }
@@ -563,6 +756,21 @@ export default {
       localStorage.removeItem('userInfo');
       // 跳转到登录页面
       this.$router.push('/');
+    },
+    
+    // 延迟隐藏退出登录按钮
+    hideLogoutWithDelay() {
+      this.hideTimeout = setTimeout(() => {
+        this.showLogout = false;
+      }, 300); // 300ms延迟
+    },
+    
+    // 清除隐藏定时器
+    clearHideTimeout() {
+      if (this.hideTimeout) {
+        clearTimeout(this.hideTimeout);
+        this.hideTimeout = null;
+      }
     },
     
     // 宿舍相关方法
@@ -729,6 +937,8 @@ export default {
 .user-info {
   position: relative;
   cursor: pointer;
+  display: flex;
+  align-items: center;
 }
 
 .user-tag {
@@ -736,6 +946,119 @@ export default {
   padding: 0.5rem 1rem;
   border-radius: 20px;
   font-size: 0.9rem;
+}
+
+/* 通知样式 */
+.notification-icon {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  position: relative;
+  margin-left: 15px;
+  cursor: pointer;
+}
+
+.notification-icon .icon {
+  font-size: 20px;
+}
+
+.notification-icon .badge {
+  position: absolute;
+  top: -5px;
+  right: -5px;
+  background-color: #ff4757;
+  color: white;
+  border-radius: 50%;
+  width: 18px;
+  height: 18px;
+  font-size: 12px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.notice-modal {
+  position: fixed;
+  top: 0;
+  left: 0;
+  width: 100%;
+  height: 100%;
+  background-color: rgba(0, 0, 0, 0.5);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  z-index: 1000;
+}
+
+.notice-content {
+  background-color: white;
+  border-radius: 8px;
+  width: 400px;
+  max-width: 90%;
+  max-height: 80vh;
+  overflow: hidden;
+  display: flex;
+  flex-direction: column;
+}
+
+.notice-header {
+  padding: 15px;
+  background-color: #4b7bec;
+  color: white;
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+}
+
+.notice-header h3 {
+  margin: 0;
+}
+
+.notice-list {
+  padding: 15px;
+  overflow-y: auto;
+  max-height: 60vh;
+}
+
+.notice-item {
+  padding: 15px;
+  border-bottom: 1px solid #eee;
+  margin-bottom: 10px;
+}
+
+.notice-title {
+  font-weight: bold;
+  margin-bottom: 5px;
+}
+
+.notice-message {
+  margin-bottom: 10px;
+  color: #555;
+}
+
+.notice-time {
+  font-size: 12px;
+  color: #999;
+  margin-bottom: 10px;
+}
+
+.mark-read-btn {
+  background-color: #4b7bec;
+  color: white;
+  border: none;
+  padding: 5px 10px;
+  border-radius: 4px;
+  cursor: pointer;
+}
+
+.mark-read-btn:hover {
+  background-color: #3867d6;
+}
+
+.no-notice {
+  text-align: center;
+  padding: 20px;
+  color: #999;
 }
 
 .logout-btn {
@@ -750,10 +1073,14 @@ export default {
   white-space: nowrap;
   box-shadow: 0 2px 8px rgba(0,0,0,0.2);
   z-index: 1000;
+  cursor: pointer;
+  user-select: none;
+  transition: all 0.2s ease;
 }
 
 .logout-btn:hover {
   background-color: #d32f2f;
+  transform: translateY(-1px);
 }
 
 /* 主布局样式 */

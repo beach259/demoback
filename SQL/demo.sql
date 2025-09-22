@@ -153,4 +153,58 @@ CREATE TABLE `student_dormitory`  (
 -- ----------------------------
 INSERT INTO `student_dormitory` VALUES (3, 'S2025001', 6, 1, NULL, NULL, 'confirmed', '2025-09-21 15:09:00', '2025-09-21 15:31:06');
 
+-- ----------------------------
+-- Table structure for notice
+-- ----------------------------
+DROP TABLE IF EXISTS `notice`;
+CREATE TABLE `notice`  (
+  `notice_id` int NOT NULL AUTO_INCREMENT COMMENT '通知ID',
+  `title` varchar(200) CHARACTER SET utf8mb4 COLLATE utf8mb4_0900_ai_ci NOT NULL COMMENT '通知标题',
+  `content` text CHARACTER SET utf8mb4 COLLATE utf8mb4_0900_ai_ci NOT NULL COMMENT '通知内容',
+  `publisher_id` varchar(20) CHARACTER SET utf8mb4 COLLATE utf8mb4_0900_ai_ci NOT NULL COMMENT '发布者ID（教职工ID）',
+  `publisher_name` varchar(50) CHARACTER SET utf8mb4 COLLATE utf8mb4_0900_ai_ci NOT NULL COMMENT '发布者姓名',
+  `target_audience` enum('all','students','staff') CHARACTER SET utf8mb4 COLLATE utf8mb4_0900_ai_ci NOT NULL DEFAULT 'students' COMMENT '目标受众（全部/学生/教职工）',
+  `priority` enum('low','normal','high','urgent') CHARACTER SET utf8mb4 COLLATE utf8mb4_0900_ai_ci NOT NULL DEFAULT 'normal' COMMENT '优先级',
+  `notice_type` enum('general','dormitory','academic','activity','emergency') CHARACTER SET utf8mb4 COLLATE utf8mb4_0900_ai_ci NOT NULL DEFAULT 'general' COMMENT '通知类型',
+  `is_published` tinyint(1) NOT NULL DEFAULT 1 COMMENT '是否发布（0-草稿，1-已发布）',
+  `publish_time` timestamp NULL DEFAULT CURRENT_TIMESTAMP COMMENT '发布时间',
+  `expire_time` timestamp NULL DEFAULT NULL COMMENT '过期时间',
+  `attachment_url` varchar(500) CHARACTER SET utf8mb4 COLLATE utf8mb4_0900_ai_ci NULL DEFAULT NULL COMMENT '附件链接',
+  `view_count` int NOT NULL DEFAULT 0 COMMENT '查看次数',
+  `created_at` timestamp NULL DEFAULT CURRENT_TIMESTAMP COMMENT '创建时间',
+  `updated_at` timestamp NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP COMMENT '更新时间',
+  PRIMARY KEY (`notice_id`) USING BTREE,
+  INDEX `idx_publisher`(`publisher_id` ASC) USING BTREE,
+  INDEX `idx_target_audience`(`target_audience` ASC) USING BTREE,
+  INDEX `idx_priority`(`priority` ASC) USING BTREE,
+  INDEX `idx_publish_time`(`publish_time` ASC) USING BTREE,
+  CONSTRAINT `notice_ibfk_1` FOREIGN KEY (`publisher_id`) REFERENCES `staff` (`staff_id`) ON DELETE CASCADE ON UPDATE RESTRICT
+) ENGINE = InnoDB AUTO_INCREMENT = 1 CHARACTER SET = utf8mb4 COLLATE = utf8mb4_0900_ai_ci COMMENT = '通知公告表' ROW_FORMAT = Dynamic;
+
+-- ----------------------------
+-- Records of notice
+-- ----------------------------
+
+-- ----------------------------
+-- Table structure for notice_read_record
+-- ----------------------------
+DROP TABLE IF EXISTS `notice_read_record`;
+CREATE TABLE `notice_read_record`  (
+  `record_id` int NOT NULL AUTO_INCREMENT COMMENT '阅读记录ID',
+  `notice_id` int NOT NULL COMMENT '通知ID',
+  `reader_id` varchar(20) CHARACTER SET utf8mb4 COLLATE utf8mb4_0900_ai_ci NOT NULL COMMENT '阅读者ID',
+  `reader_type` enum('student','staff','admin') CHARACTER SET utf8mb4 COLLATE utf8mb4_0900_ai_ci NOT NULL COMMENT '阅读者类型',
+  `read_time` timestamp NULL DEFAULT CURRENT_TIMESTAMP COMMENT '阅读时间',
+  `is_read` tinyint(1) NOT NULL DEFAULT 0 COMMENT '是否已读',
+  PRIMARY KEY (`record_id`) USING BTREE,
+  UNIQUE INDEX `unique_reader_notice`(`notice_id` ASC, `reader_id` ASC) USING BTREE,
+  INDEX `idx_reader`(`reader_id` ASC) USING BTREE,
+  INDEX `idx_notice`(`notice_id` ASC) USING BTREE,
+  CONSTRAINT `notice_read_record_ibfk_1` FOREIGN KEY (`notice_id`) REFERENCES `notice` (`notice_id`) ON DELETE CASCADE ON UPDATE RESTRICT
+) ENGINE = InnoDB AUTO_INCREMENT = 1 CHARACTER SET = utf8mb4 COLLATE = utf8mb4_0900_ai_ci COMMENT = '通知阅读记录表' ROW_FORMAT = Dynamic;
+
+-- ----------------------------
+-- Records of notice_read_record
+-- ----------------------------
+
 SET FOREIGN_KEY_CHECKS = 1;
