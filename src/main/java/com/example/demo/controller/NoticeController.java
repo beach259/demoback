@@ -4,6 +4,9 @@ import com.example.demo.dto.NoticePublishRequest;
 import com.example.demo.entity.Notice;
 import com.example.demo.service.NoticeService;
 import com.example.demo.service.NoticeReadRecordService;
+import io.swagger.annotations.Api;
+import io.swagger.annotations.ApiOperation;
+import io.swagger.annotations.ApiParam;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.*;
@@ -12,6 +15,7 @@ import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
 
+@Api(tags = "通知管理", description = "通知相关接口")
 @RestController
 @RequestMapping("/api/notices")
 @CrossOrigin(origins = "*")
@@ -26,8 +30,11 @@ public class NoticeController {
     /**
      * 更新通知并创建阅读记录
      */
+    @ApiOperation(value = "更新通知并创建阅读记录", notes = "根据通知ID更新通知内容并创建阅读记录")
     @PutMapping("/{id}/publish")
-    public ResponseEntity<Map<String, Object>> updateNoticeWithRecords(@PathVariable Integer id, @RequestBody NoticePublishRequest request) {
+    public ResponseEntity<Map<String, Object>> updateNoticeWithRecords(
+            @ApiParam(value = "通知ID", required = true) @PathVariable Integer id, 
+            @ApiParam(value = "通知发布请求", required = true) @RequestBody NoticePublishRequest request) {
         Map<String, Object> response = new HashMap<>();
         try {
             System.out.println("收到更新通知请求，ID: " + id);
